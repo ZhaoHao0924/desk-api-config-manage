@@ -1,0 +1,13 @@
+node_modules/
+.npm-cache/
+dist/
+dist-electron/
+release/
+.vite/
+vite-dev*.log
+*.log
+*.local
+.tmp-*
+.env
+.env.*
+!.env.example
