@@ -33,6 +33,7 @@ interface LegacyDatabaseSnapshotV1 {
 }
 
 export const localStorageDatabaseKey = "desk-api-config-manager.database.v1";
+export const localStorageDatabaseSchemaVersion = 3;
 const retiredBuiltInProviderIds = new Set([
   "deepseek",
   "ollama",
@@ -42,7 +43,7 @@ const retiredBuiltInProviderIds = new Set([
 const retiredNonOpenAiCompatibleProviderIds = new Set(["deepseek", "ollama", "custom"]);
 
 const seedSnapshot: DatabaseSnapshot = {
-  schemaVersion: 3,
+  schemaVersion: localStorageDatabaseSchemaVersion,
   providers: defaultProviders,
   providerModels: defaultProviderModels,
   configs: defaultConfigs,
@@ -168,7 +169,7 @@ function isSnapshot(value: unknown): value is DatabaseSnapshot {
   const candidate = value as DatabaseSnapshot;
 
   return (
-    candidate.schemaVersion === 3 &&
+    candidate.schemaVersion === localStorageDatabaseSchemaVersion &&
     Array.isArray(candidate.providers) &&
     Array.isArray(candidate.providerModels) &&
     Array.isArray(candidate.configs) &&
@@ -214,7 +215,7 @@ function normalizeSnapshot(value: unknown): DatabaseSnapshot {
 
   if (isLegacySnapshotV2(value)) {
     return cloneSnapshot({
-      schemaVersion: 3,
+      schemaVersion: localStorageDatabaseSchemaVersion,
       providers: value.providers,
       providerModels: value.providerModels,
       configs: value.configs,
@@ -224,7 +225,7 @@ function normalizeSnapshot(value: unknown): DatabaseSnapshot {
 
   if (isLegacySnapshotV1(value)) {
     return cloneSnapshot({
-      schemaVersion: 3,
+      schemaVersion: localStorageDatabaseSchemaVersion,
       providers: value.providers,
       providerModels: defaultProviderModels,
       configs: value.configs,

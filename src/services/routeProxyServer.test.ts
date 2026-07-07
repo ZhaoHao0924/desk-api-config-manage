@@ -1376,6 +1376,147 @@ describe("routeProxyServer", () => {
     }
   });
 
+  it("converts local Responses multimodal input parts to upstream chat completions content parts", async () => {
+    const fetchCalls: Array<{
+      body: Record<string, unknown>;
+      input: string;
+    }> = [];
+    const controller = createRouteProxyController({
+      providerFetch: async (input: string, init?: RequestInit) => {
+        const bodyText = Buffer.isBuffer(init?.body) ? init.body.toString("utf8") : String(init?.body ?? "");
+        fetchCalls.push({
+          body: JSON.parse(bodyText),
+          input
+        });
+
+        return new Response(
+          JSON.stringify({
+            choices: [
+              {
+                finish_reason: "stop",
+                message: {
+                  content: "multimodal converted reply",
+                  role: "assistant"
+                }
+              }
+            ],
+            id: "chatcmpl-responses-multimodal",
+            model: "upstream-model"
+          }),
+          {
+            headers: {
+              "content-type": "application/json"
+            },
+            status: 200
+          }
+        );
+      }
+    });
+
+    try {
+      const target = createRouteProxyTarget("primary", "http://127.0.0.1:3001/v1");
+      const proxyPort = await getFreePort();
+      const status = await controller.start({
+        cooldownMs: 30_000,
+        failureThreshold: 1,
+        listenAddress: "127.0.0.1",
+        listenPort: proxyPort,
+        target,
+        targets: [target],
+        timeoutMs: 5_000
+      });
+      const imageUrl = "data:image/png;base64,iVBORw0KGgo=";
+      const response = await fetch(`${status.proxyUrl}v1/responses`, {
+        body: JSON.stringify({
+          input: [
+            {
+              content: [
+                {
+                  text: "describe this image",
+                  type: "input_text"
+                },
+                {
+                  image_url: imageUrl,
+                  type: "input_image"
+                },
+                {
+                  file_id: "ignored-file-id",
+                  type: "input_file"
+                }
+              ],
+              role: "user"
+            },
+            {
+              content: [
+                {
+                  text: "prior assistant context",
+                  type: "output_text"
+                }
+              ],
+              role: "assistant"
+            }
+          ],
+          instructions: "use visual details",
+          max_output_tokens: 24,
+          model: "client-model"
+        }),
+        headers: {
+          "content-type": "application/json"
+        },
+        method: "POST"
+      });
+
+      expect(response.status).toBe(200);
+      await expect(response.json()).resolves.toMatchObject({
+        output_text: "multimodal converted reply",
+        status: "completed"
+      });
+      expect(fetchCalls).toEqual([
+        {
+          body: {
+            max_tokens: 24,
+            messages: [
+              {
+                content: "use visual details",
+                role: "system"
+              },
+              {
+                content: [
+                  {
+                    text: "describe this image",
+                    type: "text"
+                  },
+                  {
+                    image_url: {
+                      url: imageUrl
+                    },
+                    type: "image_url"
+                  }
+                ],
+                role: "user"
+              },
+              {
+                content: [
+                  {
+                    text: "prior assistant context",
+                    type: "text"
+                  }
+                ],
+                role: "assistant"
+              }
+            ],
+            model: "client-model",
+            stream: false
+          },
+          input: "http://127.0.0.1:3001/v1/chat/completions"
+        }
+      ]);
+      expect(JSON.stringify(fetchCalls[0].body)).not.toContain("ignored-file-id");
+    } finally {
+      await controller.stop();
+    }
+  });
+
   it("extracts array content parts for converted Responses outputs", async () => {
     const controller = createRouteProxyController({
       providerFetch: async () =>

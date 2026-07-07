@@ -1,6 +1,6 @@
 # Development Progress
 
-Last updated: 2026-07-06
+Last updated: 2026-07-07
 
 ## Current Milestone
 
@@ -10,10 +10,12 @@ The latest sessions verified standalone Anthropic Messages and forced OpenAI Res
 
 Most recent connection-testing work now plans the Test Center enabled-config batch test before execution, runs the sequential batch through a testable execution helper, and has focused coverage proving a soft stop prevents the next configuration from starting after the current target finishes, a cancellation observed during target-start handling prevents the current provider request from launching, and an individual target failure is counted while the next target still runs. Disabled configs are ignored, enabled configs with missing provider definitions are skipped without making requests, skipped counts are reported in the batch summary, and connection-test hardening now redacts plaintext keys, encrypted key ciphertext, key previews, generic auth key-value fields, OAuth/session credential fields, non-Bearer Authorization header values, cookie and proxy credential fields, request-endpoint URL userinfo, auth query parameters, URL userinfo embedded in arbitrary error text, and known secret values left in remaining endpoint text from persisted failures while covering readable 404/429 failures, AbortError-to-timeout mapping for renderer fetch and desktop transport paths, renderer-side sanitization of failed desktop transport response details, thrown desktop transport errors, non-Error thrown fetch failures, the desktop-transport missing-key guard that prevents a main-process/provider call without a saved secret, the no-auth desktop transport path for local providers that intentionally do not use an API key, the renderer fetch-path guard that records unavailable secret storage before any provider request is sent, sanitized secret decryption failures before persistence, bounded sanitized HTTP failure details for oversized provider responses, bounded sanitized desktop transport failure details for oversized transport responses, and unreadable provider response bodies still preserving the original HTTP failure result. Model-fetch transport results, thrown Error messages, and non-Error thrown values now have defensive renderer-side sanitization or generic collapse before UI use. Recent UI work also fixed Test Center and selected-config test history timestamps so stored UTC ISO values display in the user's local timezone instead of appearing 8 hours behind.
 
+The latest sessions added focused local route-proxy coverage for converted Responses multimodal request input, proving `input_text` and `input_image` parts are forwarded as Chat Completions `text` and `image_url` parts while unsupported file parts are dropped, synchronized the npm lockfile so dependency installation and `npm ci --dry-run` no longer fail on missing optional `@emnapi` entries, and added Settings-page runtime/storage-source visibility so users can tell whether the current window is reading development-origin or production-origin localStorage, which app and Electron runtime versions are active, which sanitized page URL is active, which main config localStorage key and schema version are used, which separate route-proxy profile localStorage key and schema version are used, which Electron userData directory backs the window, and how many main configs, provider templates, provider models, and route-proxy profiles are visible in the current workspace. The same Settings inventory now refreshes when route-proxy profile storage changes through import, Route Proxy save/delete, or a same-origin `storage` event from another window, and it now summarizes usable, stale, and degraded route-proxy profile counts without exposing profile names or config ids.
+
 ## Current State
 
 - The repository started empty.
-- The current directory is now initialized as a local Git repository. A GitHub remote is not configured yet.
+- The current directory is initialized as a local Git repository, and `origin` is configured at `https://github.com/ZhaoHao0924/desk-api-config-manage` with `main` tracking `origin/main`.
 - Node.js is available: `v24.11.1`
 - npm is available: `11.6.2`
 - .NET SDK is not installed.
@@ -5516,16 +5518,108 @@ vidia config.
   - Configure `origin` with the target GitHub repository URL.
   - Push the local branch to GitHub after remote configuration and authentication are available.
 
+2026-07-07 Route-proxy converted Responses multimodal request coverage:
+
+- Completed work:
+  - Added focused local protocol-conversion coverage for local OpenAI Responses requests whose `input` is a message array containing multimodal content parts.
+  - Proved converted upstream Chat Completions requests preserve `input_text` parts as `text` content parts.
+  - Proved converted upstream Chat Completions requests preserve `input_image` data URLs as `image_url` content parts.
+  - Proved unsupported Responses `input_file` parts are not forwarded to the upstream Chat Completions request body.
+  - Confirmed the existing route-proxy conversion runtime already supports this request shape, so no runtime code change was needed.
+  - Synchronized `package-lock.json` with npm so the missing optional `@emnapi` lock entries no longer block dependency installation checks.
+  - Confirmed the current Git remote is configured as `origin` and local `main` tracks `origin/main`.
+  - No external provider API calls were made during development or verification.
+- Changed files:
+  - `package-lock.json`
+  - `src/services/routeProxyServer.test.ts`
+  - `docs/DEVELOPMENT_PROGRESS.md`
+- Verification:
+  - `npm install`: passed and restored local `node_modules` while updating the lockfile.
+  - `npm test -- src/services/routeProxyServer.test.ts`: passed. 1 test file, 44 tests.
+  - `npm run build`: passed.
+  - `npm test`: passed. 18 test files, 183 tests.
+  - `npm ci --dry-run`: passed.
+  - `rg -n "console\\." src electron scripts`: no matches.
+  - `git remote -v`: passed and showed `origin` pointing at `https://github.com/ZhaoHao0924/desk-api-config-manage`.
+  - `git branch -vv`: passed and showed `main` tracking `origin/main`.
+  - No Electron CDP smoke was run because this was request conversion behavior covered by local route-proxy tests.
+  - No external API calls were made.
+- Current blockers:
+  - No blocker remains for converted Responses multimodal request coverage.
+  - Forced official OpenAI `responses` and `chat-completions` 2xx completion verification remains pending and should be done later only with explicit low-frequency intent.
+  - No current blocker remains for GitHub remote configuration; push/auth was not exercised in this session.
+- Exact next tasks:
+  - Continue UI polish only for concrete observed issues.
+  - Add more protocol-conversion edge fixtures only when a specific compatibility behavior is defined.
+  - Keep official OpenAI calls low frequency and avoid external providers unless the user explicitly asks.
+  - Continue the Next Tasks section below.
+
+2026-07-07 Settings storage-source visibility:
+
+- Completed work:
+  - Added a main-process `app:get-runtime-info` IPC handler that returns only runtime mode and Electron `userData` path metadata.
+  - Exposed the runtime info through the restricted preload bridge as a read-only `getRuntimeInfo` method with bounded string output.
+  - Updated renderer types for the new preload method.
+  - Extended runtime info to include bounded app version and Electron runtime version metadata.
+  - Updated the Settings view to show runtime mode, active page origin, sanitized page URL, localStorage database key, route-proxy profile localStorage key, Electron userData directory, and normalized inventory counts for configs, provider templates, provider models, and route-proxy profiles.
+  - Updated Settings runtime rows to show app version and Electron runtime version so users can distinguish the active build and shell.
+  - Added a route-proxy profile inventory summary that classifies profiles as usable, stale, or degraded against the current config ids without rendering profile names, config ids, or secrets.
+  - Updated Settings inventory rows to show total route-proxy profiles plus usable, stale, and degraded counts.
+  - Exported the current main-config and route-proxy profile snapshot schema versions as constants and used those constants in storage normalization.
+  - Updated Settings source rows to show the current main-config and route-proxy profile snapshot schema versions.
+  - Added a dedicated route-proxy profile storage-event filter so same-origin windows refresh profile inventory when the separate route-proxy localStorage key changes.
+  - Split route-proxy profile refresh signaling into external store refresh versus local inventory refresh so Route Proxy save/delete updates Settings counts without forcing the module to reselect a profile.
+  - Wired Route Proxy profile save/delete to notify the parent inventory counter while leaving profile selection changes local to the module.
+  - Added pure helper coverage for runtime-mode labels, origin labels, sanitized page URL labels, distinct main-config versus route-proxy profile localStorage key labels, and defensive inventory count labels, including development, production, browser preview, query stripping, `file://` cases, fractional counts, negative counts, and `NaN`.
+  - Added pure helper coverage for runtime version labels, including trimming, missing values, and custom fallback text.
+  - Added pure helper coverage for current snapshot schema labels, including main-config schema `v3`, route-proxy profile schema `v2`, fractional versions, negative versions, and `NaN`.
+  - Added pure helper coverage for route-proxy profile inventory summary counts, including usable profiles, stale profiles with missing primary targets, and degraded profiles with missing failover targets.
+  - Added pure helper coverage for filtering main-config storage events separately from route-proxy profile storage events.
+  - Restarted the visible Electron dev window with CDP enabled so the new main/preload code was active.
+  - Confirmed through a read-only CDP UI check that Settings displays `Electron dev mode`, the development origin, the sanitized page URL, the main localStorage database key, the route-proxy profile localStorage key, the `Administrator` userData directory, and current inventory counts including route-proxy profile count.
+  - No localStorage values, API keys, encrypted key ciphertext, key previews, headers, request bodies, or provider responses were read during verification.
+  - No external provider API calls were made.
+- Changed files:
+  - `electron/main.cjs`
+  - `electron/preload.cjs`
+  - `src/App.tsx`
+  - `src/App.test.ts`
+  - `src/features/routeProxy/RouteProxyModule.tsx`
+  - `src/services/routeProxyProfileStore.ts`
+  - `src/storage/localStorageDatabase.ts`
+  - `src/vite-env.d.ts`
+  - `docs/DEVELOPMENT_PROGRESS.md`
+- Verification:
+  - `npm test -- src/App.test.ts`: passed. 1 test file, 41 tests.
+  - `npm test -- src/App.test.ts src/storage/localStorageDatabase.test.ts src/services/routeProxyProfileStore.test.ts`: passed. 3 test files, 56 tests.
+  - `node --check electron\main.cjs`: passed.
+  - `node --check electron\preload.cjs`: passed.
+  - `npm run build`: passed.
+  - `npm test -- src/services/routeProxyServer.test.ts`: passed after an initial full-suite concurrent run hit one transient route-proxy HTTP 5xx failover assertion.
+  - `npm test`: passed. 18 test files, 192 tests.
+  - `rg -n "console\\." src electron scripts`: no matches.
+  - Restarted the Electron dev window with `VITE_DEV_SERVER_URL=http://127.0.0.1:5173/` and `--remote-debugging-port=9227`; CDP read-only text check confirmed the visible Settings data-source fields render, including app version `0.1.0`, Electron version `43.0.0`, `Page URL` as `http://127.0.0.1:5173/`, the route-proxy profile localStorage key row, main-config snapshot `v3`, route-proxy profile snapshot `v2`, and inventory counts such as route-proxy profiles, usable profiles, stale profiles, and degraded profiles at `0 items` in the current workspace.
+- Current blockers:
+  - No blocker remains for Settings storage-source visibility.
+  - Forced official OpenAI `responses` and `chat-completions` 2xx completion verification remains pending and should be done later only with explicit low-frequency intent.
+  - Push/auth was not exercised in this session.
+- Exact next tasks:
+  - Continue UI polish only for concrete observed issues.
+  - Add more protocol-conversion edge fixtures only when a specific compatibility behavior is defined.
+  - Keep official OpenAI calls low frequency and avoid external providers unless the user explicitly asks.
+  - Continue the Next Tasks section below.
+
 ## Current Blockers
 
-- The sandboxed command runner cannot reliably keep background Vite/Electron GUI processes alive. For UI verification, start Vite outside the sandbox directly with `D:\Node\node.exe node_modules\vite\bin\vite.js --host 127.0.0.1`, verify `5173`, then launch Electron with `VITE_DEV_SERVER_URL=http://127.0.0.1:5173/`.
+- The sandboxed command runner cannot reliably keep background Vite/Electron GUI processes alive. For UI verification, start Vite outside the sandbox directly with `C:\Program Files\nodejs\node.exe node_modules\vite\bin\vite.js --host 127.0.0.1`, verify `5173`, then launch Electron with `VITE_DEV_SERVER_URL=http://127.0.0.1:5173/`.
 - Sandboxed `npm test` and `npm run build` can fail with Vite `spawn EPERM`; rerun them outside the sandbox when that happens.
-- The local Git repository is initialized, but no GitHub remote is configured yet.
+- The local Git repository has `origin` configured at `https://github.com/ZhaoHao0924/desk-api-config-manage`, and `main` tracks `origin/main`; push/auth was not exercised in this session.
 - A saved official `api.openai.com` config is now available, `/v1/models` succeeds, and one low-frequency official `auto` Responses connection test returned HTTP 200. Forced official `responses` and forced official `chat-completions` 2xx completion verification remains pending and should be done later only with explicit low-frequency intent.
 - If the saved official OpenAI key is the key that was pasted in chat, it should be revoked/rotated and replaced in the app.
 - Direct network/DNS access to `api.openai.com` is polluted/blocked on this machine. The user-level proxy at `127.0.0.1:10808` reaches OpenAI, and provider requests now use Electron `net.fetch` when available.
 - The standalone model chat module, streaming IPC, OpenAI-compatible Chat Completions response extraction, Anthropic Messages response extraction, Responses-compatible response extraction, mock incremental streaming, text attachment request shape, and image attachment request shape now have verification coverage.
-- The route proxy module is now verified with a real saved-key streaming OpenAI-compatible request, local mock request logging smoke, local mock failover/circuit-breaker smoke, local mock HTTP 4xx non-retry smoke, local mock HTTP 5xx failover smoke, pure local network-error failover coverage, deterministic cooldown skip/failback coverage, deterministic real saved-key failover to `agnes` and `nvidia`, forwarded header filtering coverage, auth-query stripping coverage, an Electron loopback success smoke, unit-tested retry policy behavior, deterministic target-health snapshot helper coverage, first-pass opt-in durable target-health transition history, target-health diagnostics-list rendering, route-proxy diagnostics event filtering, a separate target-health history view, explicit weighted round-robin routing, first-pass local client adapter snippets, first-pass non-streaming plus streaming Responses-to-Chat-Completions conversion, first-pass non-streaming plus streaming Anthropic Messages-to-Chat-Completions conversion, and first-pass protocol-conversion edge fixtures for official Responses pass-through, upstream HTTP error pass-through for Responses and Anthropic, Anthropic URL images, non-streaming and streaming Anthropic max-token stop mapping, non-streaming and streaming Anthropic tool-use stop mapping, invalid JSON errors, converted non-streaming/streaming client auth/protocol header filtering, non-streaming plus streaming converted Responses array content-part extraction, streaming converted Anthropic array content-part extraction, and converted streaming Responses usage normalization. Broader protocol-conversion edge cases can still expand as expectations are defined.
+- The Settings view now displays runtime mode, app version, Electron version, active page origin, sanitized page URL, main localStorage database key and snapshot schema version, route-proxy profile localStorage key and snapshot schema version, Electron userData directory, and current workspace inventory counts including usable/stale/degraded route-proxy profile counts, which helps distinguish development-origin data from production `file://` origin data and from route-proxy profile snapshot data.
+- The route proxy module is now verified with a real saved-key streaming OpenAI-compatible request, local mock request logging smoke, local mock failover/circuit-breaker smoke, local mock HTTP 4xx non-retry smoke, local mock HTTP 5xx failover smoke, pure local network-error failover coverage, deterministic cooldown skip/failback coverage, deterministic real saved-key failover to `agnes` and `nvidia`, forwarded header filtering coverage, auth-query stripping coverage, an Electron loopback success smoke, unit-tested retry policy behavior, deterministic target-health snapshot helper coverage, first-pass opt-in durable target-health transition history, target-health diagnostics-list rendering, route-proxy diagnostics event filtering, a separate target-health history view, explicit weighted round-robin routing, first-pass local client adapter snippets, first-pass non-streaming plus streaming Responses-to-Chat-Completions conversion, first-pass non-streaming plus streaming Anthropic Messages-to-Chat-Completions conversion, and first-pass protocol-conversion edge fixtures for official Responses pass-through, upstream HTTP error pass-through for Responses and Anthropic, Anthropic URL images, converted Responses multimodal input-part request forwarding, non-streaming and streaming Anthropic max-token stop mapping, non-streaming and streaming Anthropic tool-use stop mapping, invalid JSON errors, converted non-streaming/streaming client auth/protocol header filtering, non-streaming plus streaming converted Responses array content-part extraction, streaming converted Anthropic array content-part extraction, and converted streaming Responses usage normalization. Broader protocol-conversion edge cases can still expand as expectations are defined.
 - Route proxy named profiles are implemented as a dedicated renderer localStorage snapshot and now participate in secret-free template import/export with focused import-helper coverage. They are still not embedded in the main repository snapshot.
 - Route proxy request logs remain in-memory by default. Durable diagnostics are opt-in: the model, retention policy, guard helpers, storage adapter, Electron IPC, preload, renderer transport, minimal UI controls, runtime append, target-health transition append, runtime flush coverage, retention trigger coverage, clear-append serialization coverage, clear-preserves-opt-in behavior, and UI smoke are complete. Entries are written only after explicit user enablement, and clearing entries no longer disables the opt-in state.
 - Gemini, Antigravity, Grok, and old OpenAI provider ids now migrate to `openai-compatible`; they no longer require separate provider-specific real-key verification beyond the shared OpenAI-compatible path.

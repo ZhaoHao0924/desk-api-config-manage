@@ -44,6 +44,7 @@ import { environmentLabels, normalizeProviderId } from "../../types";
 interface RouteProxyModuleProps {
   configs: ApiConfig[];
   getProviderDisplayName: (providerId: string) => string;
+  onProfileInventoryChange?: () => void;
   onSelectConfig: (configId: string) => void;
   profileStore?: RouteProxyProfileStore;
   profileStoreVersion?: number;
@@ -288,6 +289,7 @@ function RouteProxyInfoRow({ label, value }: { label: string; value: string | nu
 export function RouteProxyModule({
   configs,
   getProviderDisplayName,
+  onProfileInventoryChange,
   onSelectConfig,
   profileStore: providedProfileStore,
   profileStoreVersion = 0,
@@ -793,6 +795,7 @@ export function RouteProxyModule({
     });
 
     reloadProfiles();
+    onProfileInventoryChange?.();
     setSelectedProfileId(savedProfile.id);
     setProfileName(savedProfile.name);
     setTemporaryActionStatus("已保存代理方案");
@@ -805,6 +808,7 @@ export function RouteProxyModule({
 
     profileStore.deleteProfile(selectedProfileId);
     reloadProfiles();
+    onProfileInventoryChange?.();
     setSelectedProfileId("");
     setProfileName("");
     setFailoverTargetIds([]);

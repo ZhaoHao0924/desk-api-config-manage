@@ -16,17 +16,33 @@ import {
   getFetchedModelSelectValue,
   getLatestProviderModelFetchedAt,
   formatLocalDateTime,
+  getLocalStorageKeyDisplayLabel,
   getProviderDisplayName,
   getProviderFilterLabel,
   getProviderSelectValue,
+  getRuntimeDisplayLabel,
+  getRuntimeVersionDisplayLabel,
+  getStorageOriginDisplayLabel,
+  getStorageItemCountDisplayLabel,
+  getStoragePageUrlDisplayLabel,
+  getStorageSchemaDisplayLabel,
   isConfigDatabaseStorageEvent,
+  isRouteProxyProfileStorageEvent,
   openAiCompatibleProviderFilterId,
   pickCreateProvider,
   readRouteProxyProfileTemplates,
   runConnectionTestBatchPlan,
   shouldShowEndpointMode,
+  summarizeRouteProxyProfileInventory,
   writeClipboardText
 } from "./App";
+import {
+  routeProxyProfileSchemaVersion,
+  routeProxyProfileStorageKey,
+  type RouteProxyProfile
+} from "./services/routeProxyProfileStore";
+import { localStorageDatabaseKey, localStorageDatabaseSchemaVersion } from "./storage/localStorageDatabase";
+import type { ApiConfig } from "./types";
 
 describe("App state helpers", () => {
   afterEach(() => {
@@ -250,6 +266,105 @@ describe("App state helpers", () => {
     );
     expect(formatLocalDateTime(value)).not.toBe(value);
     expect(formatLocalDateTime("")).toBe("");
+  });
+
+  it("labels the current runtime mode for the settings view", () => {
+    expect(getRuntimeDisplayLabel(true, true)).toBe("Electron 开发模式");
+    expect(getRuntimeDisplayLabel(true, false)).toBe("Electron 生产模式");
+    expect(getRuntimeDisplayLabel(true)).toBe("Electron");
+    expect(getRuntimeDisplayLabel(false)).toBe("浏览器预览");
+  });
+
+  it("labels runtime versions for the settings view", () => {
+    expect(getRuntimeVersionDisplayLabel(" 0.1.0 ")).toBe("0.1.0");
+    expect(getRuntimeVersionDisplayLabel("43.0.0")).toBe("43.0.0");
+    expect(getRuntimeVersionDisplayLabel("")).toBe("读取中");
+    expect(getRuntimeVersionDisplayLabel(undefined)).toBe("读取中");
+    expect(getRuntimeVersionDisplayLabel("", "未运行")).toBe("未运行");
+  });
+
+  it("labels the active storage origin for the settings view", () => {
+    expect(getStorageOriginDisplayLabel("http://127.0.0.1:5173", "http:")).toBe("http://127.0.0.1:5173");
+    expect(getStorageOriginDisplayLabel("null", "file:")).toBe("file://");
+    expect(getStorageOriginDisplayLabel("", "")).toBe("未知来源");
+  });
+
+  it("labels the active page URL without query strings for the settings view", () => {
+    expect(getStoragePageUrlDisplayLabel("http://127.0.0.1:5173/")).toBe("http://127.0.0.1:5173/");
+    expect(getStoragePageUrlDisplayLabel("http://127.0.0.1:5173/?api_key=secret#token")).toBe(
+      "http://127.0.0.1:5173/"
+    );
+    expect(getStoragePageUrlDisplayLabel("")).toBe("未知地址");
+  });
+
+  it("labels distinct localStorage keys for the settings view", () => {
+    expect(getLocalStorageKeyDisplayLabel(localStorageDatabaseKey)).toBe(
+      "localStorage / desk-api-config-manager.database.v1"
+    );
+    expect(getLocalStorageKeyDisplayLabel(routeProxyProfileStorageKey)).toBe(
+      "localStorage / desk-api-config-manager.route-proxy-profiles.v1"
+    );
+  });
+
+  it("labels settings inventory counts defensively", () => {
+    expect(getStorageItemCountDisplayLabel(3)).toBe("3 项");
+    expect(getStorageItemCountDisplayLabel(2.9)).toBe("2 项");
+    expect(getStorageItemCountDisplayLabel(-1)).toBe("0 项");
+    expect(getStorageItemCountDisplayLabel(Number.NaN)).toBe("0 项");
+  });
+
+  it("labels current storage snapshot schema versions for the settings view", () => {
+    expect(getStorageSchemaDisplayLabel(localStorageDatabaseSchemaVersion)).toBe("快照 v3");
+    expect(getStorageSchemaDisplayLabel(routeProxyProfileSchemaVersion)).toBe("快照 v2");
+    expect(getStorageSchemaDisplayLabel(2.9)).toBe("快照 v2");
+    expect(getStorageSchemaDisplayLabel(-1)).toBe("快照 v0");
+    expect(getStorageSchemaDisplayLabel(Number.NaN)).toBe("快照 v0");
+  });
+
+  it("filters storage events for config and route-proxy profile snapshots", () => {
+    expect(isConfigDatabaseStorageEvent(localStorageDatabaseKey)).toBe(true);
+    expect(isConfigDatabaseStorageEvent(routeProxyProfileStorageKey)).toBe(false);
+    expect(isConfigDatabaseStorageEvent(null)).toBe(false);
+
+    expect(isRouteProxyProfileStorageEvent(routeProxyProfileStorageKey)).toBe(true);
+    expect(isRouteProxyProfileStorageEvent(localStorageDatabaseKey)).toBe(false);
+    expect(isRouteProxyProfileStorageEvent("other-key")).toBe(false);
+    expect(isRouteProxyProfileStorageEvent(null)).toBe(false);
+  });
+
+  it("summarizes route-proxy profile inventory against current configs", () => {
+    const configs = [{ id: "cfg-primary" }, { id: "cfg-backup" }] as ApiConfig[];
+    const createProfile = (overrides: Partial<RouteProxyProfile>): RouteProxyProfile => ({
+      configId: "cfg-primary",
+      cooldownMs: 30_000,
+      createdAt: "2026-07-07T00:00:00.000Z",
+      failoverConfigIds: [],
+      failureThreshold: 2,
+      id: "profile-1",
+      listenAddress: "127.0.0.1",
+      listenPort: 3100,
+      name: "Profile",
+      routingMode: "ordered",
+      targetWeights: {},
+      updatedAt: "2026-07-07T00:00:00.000Z",
+      ...overrides
+    });
+
+    expect(
+      summarizeRouteProxyProfileInventory(
+        [
+          createProfile({ id: "usable", failoverConfigIds: ["cfg-backup"] }),
+          createProfile({ id: "stale", configId: "missing-primary" }),
+          createProfile({ id: "degraded", failoverConfigIds: ["missing-backup"] })
+        ],
+        configs
+      )
+    ).toEqual({
+      degradedCount: 1,
+      staleCount: 1,
+      totalCount: 3,
+      usableCount: 2
+    });
   });
 
   it("selects only enabled configs for batch connection testing", () => {

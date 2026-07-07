@@ -47,6 +47,8 @@ import {
 import {
   createLocalStorageRouteProxyProfileStore,
   createRouteProxyProfileId,
+  routeProxyProfileSchemaVersion,
+  routeProxyProfileStorageKey,
   type RouteProxyProfile
 } from "./services/routeProxyProfileStore";
 import {
@@ -58,7 +60,11 @@ import {
   fallbackRouteProxyDefaultConfig
 } from "./services/routeProxyTransport";
 import { createDesktopSecretService } from "./services/secretService";
-import { LocalStorageConfigRepository, localStorageDatabaseKey } from "./storage/localStorageDatabase";
+import {
+  LocalStorageConfigRepository,
+  localStorageDatabaseKey,
+  localStorageDatabaseSchemaVersion
+} from "./storage/localStorageDatabase";
 import type {
   ApiConfig,
   ApiProvider,
@@ -96,6 +102,20 @@ interface ConfigFormState {
   tagsText: string;
   notes: string;
   isEnabled: boolean;
+}
+
+interface DesktopRuntimeInfo {
+  appVersion: string;
+  electronVersion: string;
+  isDev: boolean;
+  userDataPath: string;
+}
+
+interface RouteProxyProfileInventorySummary {
+  degradedCount: number;
+  staleCount: number;
+  totalCount: number;
+  usableCount: number;
 }
 
 type FormMode = "view" | "create" | "edit";
@@ -420,6 +440,98 @@ export function formatProviderModelFetchedAt(value: string): string {
   return formatLocalDateTime(value);
 }
 
+export function getRuntimeDisplayLabel(isDesktop: boolean, isDev?: boolean): string {
+  if (!isDesktop) {
+    return "浏览器预览";
+  }
+
+  if (isDev === undefined) {
+    return "Electron";
+  }
+
+  return isDev ? "Electron 开发模式" : "Electron 生产模式";
+}
+
+export function getRuntimeVersionDisplayLabel(version: string | undefined, fallback = "读取中"): string {
+  const normalizedVersion = version?.trim() ?? "";
+
+  return normalizedVersion || fallback;
+}
+
+export function getStorageOriginDisplayLabel(origin: string, protocol = ""): string {
+  if (origin && origin !== "null") {
+    return origin;
+  }
+
+  if (protocol === "file:") {
+    return "file://";
+  }
+
+  return "未知来源";
+}
+
+export function getStoragePageUrlDisplayLabel(href: string): string {
+  const trimmedHref = href.trim();
+
+  if (!trimmedHref) {
+    return "未知地址";
+  }
+
+  try {
+    const parsedHref = new URL(trimmedHref);
+
+    parsedHref.search = "";
+    parsedHref.hash = "";
+    return parsedHref.toString();
+  } catch {
+    return trimmedHref.slice(0, 500);
+  }
+}
+
+export function getLocalStorageKeyDisplayLabel(key: string): string {
+  return `localStorage / ${key}`;
+}
+
+export function getStorageItemCountDisplayLabel(count: number): string {
+  const normalizedCount = Number.isFinite(count) ? Math.max(0, Math.trunc(count)) : 0;
+
+  return `${normalizedCount} 项`;
+}
+
+export function getStorageSchemaDisplayLabel(version: number): string {
+  const normalizedVersion = Number.isFinite(version) ? Math.max(0, Math.trunc(version)) : 0;
+
+  return `快照 v${normalizedVersion}`;
+}
+
+export function summarizeRouteProxyProfileInventory(
+  profiles: RouteProxyProfile[],
+  configs: ApiConfig[]
+): RouteProxyProfileInventorySummary {
+  const configIds = new Set(configs.map((config) => config.id));
+  const summary: RouteProxyProfileInventorySummary = {
+    degradedCount: 0,
+    staleCount: 0,
+    totalCount: profiles.length,
+    usableCount: 0
+  };
+
+  for (const profile of profiles) {
+    if (!configIds.has(profile.configId)) {
+      summary.staleCount += 1;
+      continue;
+    }
+
+    summary.usableCount += 1;
+
+    if (profile.failoverConfigIds.some((configId) => !configIds.has(configId))) {
+      summary.degradedCount += 1;
+    }
+  }
+
+  return summary;
+}
+
 export function getEnabledConnectionTestTargets(configs: ApiConfig[]): ApiConfig[] {
   return configs.filter((config) => config.isEnabled);
 }
@@ -590,6 +702,10 @@ export function createFetchedProviderModels(
 
 export function isConfigDatabaseStorageEvent(key: string | null): boolean {
   return key === localStorageDatabaseKey;
+}
+
+export function isRouteProxyProfileStorageEvent(key: string | null): boolean {
+  return key === routeProxyProfileStorageKey;
 }
 
 export function createConfigTemplateExport(
@@ -1005,6 +1121,8 @@ function SecondarySectionPanel({
   providers,
   providerModels,
   providerFilter,
+  routeProxyProfileInventory,
+  runtimeInfo,
   testHistory,
   secretStorageAvailable
 }: {
@@ -1017,6 +1135,8 @@ function SecondarySectionPanel({
   providers: ApiProvider[];
   providerModels: ProviderModel[];
   providerFilter: string;
+  routeProxyProfileInventory: RouteProxyProfileInventorySummary;
+  runtimeInfo?: DesktopRuntimeInfo;
   testHistory: TestHistoryItem[];
   secretStorageAvailable: boolean;
 }) {
@@ -1028,7 +1148,24 @@ function SecondarySectionPanel({
   const untestedCount = configs.filter((config) => config.lastTestStatus === "untested").length;
   const recentHistory = testHistory.slice(0, 20);
   const activeFilterName = getProviderFilterLabel(providerFilter, providers);
-  const runtimeLabel = typeof window !== "undefined" && window.deskApi ? "Electron" : "浏览器预览";
+  const isDesktopRuntime = typeof window !== "undefined" && Boolean(window.deskApi);
+  const runtimeLabel = getRuntimeDisplayLabel(isDesktopRuntime, runtimeInfo?.isDev);
+  const appVersionLabel = isDesktopRuntime
+    ? getRuntimeVersionDisplayLabel(runtimeInfo?.appVersion)
+    : "浏览器预览";
+  const electronVersionLabel = isDesktopRuntime
+    ? getRuntimeVersionDisplayLabel(runtimeInfo?.electronVersion)
+    : "未运行";
+  const storageOrigin = getStorageOriginDisplayLabel(
+    typeof window !== "undefined" ? window.location.origin : "",
+    typeof window !== "undefined" ? window.location.protocol : ""
+  );
+  const storagePageUrl = getStoragePageUrlDisplayLabel(typeof window !== "undefined" ? window.location.href : "");
+  const configStorageLabel = getLocalStorageKeyDisplayLabel(localStorageDatabaseKey);
+  const routeProxyProfileStorageLabel = getLocalStorageKeyDisplayLabel(routeProxyProfileStorageKey);
+  const configSchemaLabel = getStorageSchemaDisplayLabel(localStorageDatabaseSchemaVersion);
+  const routeProxyProfileSchemaLabel = getStorageSchemaDisplayLabel(routeProxyProfileSchemaVersion);
+  const userDataPath = isDesktopRuntime ? runtimeInfo?.userDataPath || "读取中" : "浏览器配置目录";
   const getConfigName = (configId: string) => configs.find((config) => config.id === configId)?.name ?? "已删除配置";
 
   if (activeSection === "tests") {
@@ -1200,15 +1337,27 @@ function SecondarySectionPanel({
           <div className="infoBlock">
             <dl className="infoList">
               <InfoRow label="运行环境" value={runtimeLabel} />
-              <InfoRow label="本地存储" value="localStorage" />
+              <InfoRow label="应用版本" value={appVersionLabel} />
+              <InfoRow label="Electron 版本" value={electronVersionLabel} />
+              <InfoRow label="页面来源" value={storageOrigin} />
+              <InfoRow label="页面地址" value={storagePageUrl} />
+              <InfoRow label="主配置存储" value={configStorageLabel} />
+              <InfoRow label="代理方案存储" value={routeProxyProfileStorageLabel} />
+              <InfoRow label="主配置版本" value={configSchemaLabel} />
+              <InfoRow label="代理方案版本" value={routeProxyProfileSchemaLabel} />
+              <InfoRow label="数据目录" value={userDataPath} />
               <InfoRow label="供应商筛选" value={activeFilterName} />
             </dl>
           </div>
           <div className="infoBlock">
             <dl className="infoList">
-              <InfoRow label="配置数量" value={configs.length} />
-              <InfoRow label="供应商模板" value={providers.length} />
-              <InfoRow label="模型目录" value={providerModels.length} />
+              <InfoRow label="配置数量" value={getStorageItemCountDisplayLabel(configs.length)} />
+              <InfoRow label="供应商模板" value={getStorageItemCountDisplayLabel(providers.length)} />
+              <InfoRow label="模型目录" value={getStorageItemCountDisplayLabel(providerModels.length)} />
+              <InfoRow label="代理方案" value={getStorageItemCountDisplayLabel(routeProxyProfileInventory.totalCount)} />
+              <InfoRow label="可用代理方案" value={getStorageItemCountDisplayLabel(routeProxyProfileInventory.usableCount)} />
+              <InfoRow label="失效代理方案" value={getStorageItemCountDisplayLabel(routeProxyProfileInventory.staleCount)} />
+              <InfoRow label="降级代理方案" value={getStorageItemCountDisplayLabel(routeProxyProfileInventory.degradedCount)} />
             </dl>
           </div>
         </div>
@@ -1257,7 +1406,9 @@ export function App() {
   const [formState, setFormState] = useState<ConfigFormState>(() => createEmptyForm(defaultProviders[0]));
   const [formError, setFormError] = useState("");
   const [toolbarStatus, setToolbarStatus] = useState("");
+  const [runtimeInfo, setRuntimeInfo] = useState<DesktopRuntimeInfo>();
   const [routeProxyProfileStoreVersion, setRouteProxyProfileStoreVersion] = useState(0);
+  const [routeProxyProfileInventoryVersion, setRouteProxyProfileInventoryVersion] = useState(0);
 
   const providerLookup = useMemo(() => {
     return new Map(providers.map((provider) => [provider.id, provider]));
@@ -1265,6 +1416,17 @@ export function App() {
 
   const providerFilterItems = useMemo(() => createProviderFilterItems(configs, providers), [configs, providers]);
   const providerSelectOptions = useMemo(() => createProviderSelectOptions(providers), [providers]);
+  const routeProxyProfileInventory = useMemo(
+    () => summarizeRouteProxyProfileInventory(routeProxyProfileStore?.listProfiles() ?? [], configs),
+    [configs, routeProxyProfileStore, routeProxyProfileStoreVersion, routeProxyProfileInventoryVersion]
+  );
+  const refreshRouteProxyProfileStore = useCallback(() => {
+    setRouteProxyProfileStoreVersion((currentVersion) => currentVersion + 1);
+    setRouteProxyProfileInventoryVersion((currentVersion) => currentVersion + 1);
+  }, []);
+  const refreshRouteProxyProfileInventory = useCallback(() => {
+    setRouteProxyProfileInventoryVersion((currentVersion) => currentVersion + 1);
+  }, []);
 
   const getProviderName = useCallback(
     (providerId: string) => providerLookup.get(normalizeProviderId(providerId))?.name ?? unknownProviderName,
@@ -1294,15 +1456,36 @@ export function App() {
   }, [loadData]);
 
   useEffect(() => {
+    let isMounted = true;
+
+    window.deskApi
+      ?.getRuntimeInfo?.()
+      .then((info) => {
+        if (isMounted) {
+          setRuntimeInfo(info);
+        }
+      })
+      .catch(() => undefined);
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
     const handleStorage = (event: StorageEvent) => {
       if (isConfigDatabaseStorageEvent(event.key)) {
         void loadData();
+      }
+
+      if (isRouteProxyProfileStorageEvent(event.key)) {
+        refreshRouteProxyProfileStore();
       }
     };
 
     window.addEventListener("storage", handleStorage);
     return () => window.removeEventListener("storage", handleStorage);
-  }, [loadData]);
+  }, [loadData, refreshRouteProxyProfileStore]);
 
   useEffect(() => {
     let isMounted = true;
@@ -1983,7 +2166,7 @@ export function App() {
         }
 
         if (importedProfiles.length > 0) {
-          setRouteProxyProfileStoreVersion((currentVersion) => currentVersion + 1);
+          refreshRouteProxyProfileStore();
         }
       }
 
@@ -2644,6 +2827,7 @@ export function App() {
           <RouteProxyModule
             configs={configs}
             getProviderDisplayName={getProviderDisplayNameForConfig}
+            onProfileInventoryChange={refreshRouteProxyProfileInventory}
             profileStore={routeProxyProfileStore}
             profileStoreVersion={routeProxyProfileStoreVersion}
             providers={providers}
@@ -2665,6 +2849,8 @@ export function App() {
             providerFilter={providerFilter}
             providerModels={providerModels}
             providers={providers}
+            routeProxyProfileInventory={routeProxyProfileInventory}
+            runtimeInfo={runtimeInfo}
             secretStorageAvailable={secretStorageAvailable}
             testHistory={testHistory}
           />

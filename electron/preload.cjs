@@ -269,8 +269,27 @@ function sanitizeRouteProxyDiagnosticsQuery(query) {
   };
 }
 
+function sanitizeRuntimeInfo(info) {
+  if (!info || typeof info !== "object") {
+    return {
+      appVersion: "",
+      electronVersion: "",
+      isDev: false,
+      userDataPath: ""
+    };
+  }
+
+  return {
+    appVersion: String(info.appVersion ?? "").slice(0, 120),
+    electronVersion: String(info.electronVersion ?? "").slice(0, 120),
+    isDev: info.isDev === true,
+    userDataPath: String(info.userDataPath ?? "").slice(0, 1000)
+  };
+}
+
 contextBridge.exposeInMainWorld("deskApi", {
   getAppVersion: () => ipcRenderer.invoke("app:get-version"),
+  getRuntimeInfo: () => ipcRenderer.invoke("app:get-runtime-info").then(sanitizeRuntimeInfo),
   secrets: {
     isEncryptionAvailable: () => ipcRenderer.invoke("secret:is-encryption-available"),
     encrypt: (plaintext) => {

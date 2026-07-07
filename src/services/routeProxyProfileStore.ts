@@ -44,11 +44,12 @@ export interface RouteProxyProfileStorageLike {
 }
 
 export const routeProxyProfileStorageKey = "desk-api-config-manager.route-proxy-profiles.v1";
+export const routeProxyProfileSchemaVersion = 2;
 
 const emptyRouteProxyProfileSnapshot: RouteProxyProfileSnapshot = {
   activeProfileId: "",
   profiles: [],
-  schemaVersion: 2
+  schemaVersion: routeProxyProfileSchemaVersion
 };
 
 function cloneProfile(profile: RouteProxyProfile): RouteProxyProfile {
@@ -161,7 +162,7 @@ function normalizeSnapshot(value: unknown): RouteProxyProfileSnapshot {
   return {
     activeProfileId,
     profiles,
-    schemaVersion: 2
+    schemaVersion: routeProxyProfileSchemaVersion
   };
 }
 

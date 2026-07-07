@@ -1455,6 +1455,12 @@ if (!gotSingleInstanceLock) {
     void getRouteProxyDiagnosticsStore().open().catch(() => undefined);
 
     ipcMain.handle("app:get-version", () => app.getVersion());
+    ipcMain.handle("app:get-runtime-info", () => ({
+      appVersion: app.getVersion(),
+      electronVersion: process.versions.electron || "",
+      isDev,
+      userDataPath: app.getPath("userData")
+    }));
     ipcMain.handle("secret:is-encryption-available", () => safeStorage.isEncryptionAvailable());
     ipcMain.handle("secret:encrypt", (_event, plaintext) => {
       assertString(plaintext, "plaintext");

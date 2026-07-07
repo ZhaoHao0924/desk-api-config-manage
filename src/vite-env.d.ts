@@ -62,6 +62,12 @@ type DeskApiRouteProxyDiagnosticsQuery = {
 interface Window {
   deskApi?: {
     getAppVersion: () => Promise<string>;
+    getRuntimeInfo?: () => Promise<{
+      appVersion: string;
+      electronVersion: string;
+      isDev: boolean;
+      userDataPath: string;
+    }>;
     secrets: {
       isEncryptionAvailable: () => Promise<boolean>;
       encrypt: (plaintext: string) => Promise<string>;
