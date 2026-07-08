@@ -1047,6 +1047,72 @@ function createRouteProxyController(options = {}) {
     return convertedParts.length > 0 ? convertedParts : "";
   }
 
+  function convertRouteProxyResponsesFunctionCallInputToChatToolCall(item, index) {
+    if (!item || typeof item !== "object" || item.type !== "function_call") {
+      return undefined;
+    }
+
+    const functionName = typeof item.name === "string" && item.name.trim() ? item.name.trim() : "";
+
+    if (!functionName) {
+      return undefined;
+    }
+
+    const callId =
+      typeof item.call_id === "string" && item.call_id.trim()
+        ? item.call_id.trim()
+        : typeof item.id === "string" && item.id.trim()
+          ? item.id.trim()
+          : `call_${index}`;
+
+    return {
+      id: callId,
+      type: "function",
+      function: {
+        arguments: normalizeRouteProxyFunctionCallArguments(item.arguments),
+        name: functionName
+      }
+    };
+  }
+
+  function stringifyRouteProxyResponsesFunctionCallOutput(output) {
+    if (typeof output === "string") {
+      return output;
+    }
+
+    const extractedText = extractRouteProxyTextFromContentParts(output).trim();
+
+    if (extractedText) {
+      return extractedText;
+    }
+
+    if (output && typeof output === "object") {
+      try {
+        return JSON.stringify(output);
+      } catch {
+        return "";
+      }
+    }
+
+    return "";
+  }
+
+  function convertRouteProxyResponsesFunctionCallOutputToChatToolMessage(item) {
+    if (!item || typeof item !== "object" || item.type !== "function_call_output") {
+      return undefined;
+    }
+
+    if (typeof item.call_id !== "string" || !item.call_id.trim()) {
+      return undefined;
+    }
+
+    return {
+      content: stringifyRouteProxyResponsesFunctionCallOutput(item.output),
+      role: "tool",
+      tool_call_id: item.call_id.trim()
+    };
+  }
+
   function convertRouteProxyResponsesInputToChatMessages(input, instructions) {
     const messages = [];
 
@@ -1066,11 +1132,52 @@ function createRouteProxyController(options = {}) {
     }
 
     if (Array.isArray(input)) {
-      const looksLikeMessages = input.some((item) => item && typeof item === "object" && typeof item.role === "string");
+      const looksLikeMessages = input.some(
+        (item) =>
+          item &&
+          typeof item === "object" &&
+          (typeof item.role === "string" || item.type === "message" || item.type === "function_call" || item.type === "function_call_output")
+      );
 
       if (looksLikeMessages) {
+        let pendingToolCalls = [];
+        const flushPendingToolCalls = () => {
+          if (pendingToolCalls.length === 0) {
+            return;
+          }
+
+          messages.push({
+            content: "",
+            role: "assistant",
+            tool_calls: pendingToolCalls
+          });
+          pendingToolCalls = [];
+        };
+
         for (const item of input) {
           if (!item || typeof item !== "object") {
+            continue;
+          }
+
+          if (item.type === "function_call") {
+            const toolCall = convertRouteProxyResponsesFunctionCallInputToChatToolCall(item, pendingToolCalls.length);
+
+            if (toolCall) {
+              pendingToolCalls.push(toolCall);
+            }
+
+            continue;
+          }
+
+          flushPendingToolCalls();
+
+          if (item.type === "function_call_output") {
+            const toolMessage = convertRouteProxyResponsesFunctionCallOutputToChatToolMessage(item);
+
+            if (toolMessage) {
+              messages.push(toolMessage);
+            }
+
             continue;
           }
 
@@ -1080,6 +1187,8 @@ function createRouteProxyController(options = {}) {
             role
           });
         }
+
+        flushPendingToolCalls();
 
         return messages;
       }
@@ -1098,6 +1207,69 @@ function createRouteProxyController(options = {}) {
     return messages;
   }
 
+  function convertRouteProxyResponsesFunctionToolToChatTool(tool) {
+    if (!tool || typeof tool !== "object" || tool.type !== "function" || typeof tool.name !== "string" || !tool.name.trim()) {
+      return undefined;
+    }
+
+    const convertedTool = {
+      type: "function",
+      function: {
+        name: tool.name.trim()
+      }
+    };
+
+    if (typeof tool.description === "string" && tool.description.trim()) {
+      convertedTool.function.description = tool.description;
+    }
+
+    if (tool.parameters && typeof tool.parameters === "object" && !Array.isArray(tool.parameters)) {
+      convertedTool.function.parameters = tool.parameters;
+    }
+
+    if (typeof tool.strict === "boolean") {
+      convertedTool.function.strict = tool.strict;
+    }
+
+    return convertedTool;
+  }
+
+  function convertRouteProxyResponsesToolsToChatTools(tools) {
+    if (!Array.isArray(tools)) {
+      return [];
+    }
+
+    return tools.map(convertRouteProxyResponsesFunctionToolToChatTool).filter(Boolean);
+  }
+
+  function convertRouteProxyResponsesToolChoiceToChatToolChoice(toolChoice) {
+    if (["auto", "none", "required"].includes(toolChoice)) {
+      return toolChoice;
+    }
+
+    if (!toolChoice || typeof toolChoice !== "object" || toolChoice.type !== "function") {
+      return undefined;
+    }
+
+    const functionName =
+      typeof toolChoice.name === "string" && toolChoice.name.trim()
+        ? toolChoice.name.trim()
+        : typeof toolChoice.function?.name === "string" && toolChoice.function.name.trim()
+          ? toolChoice.function.name.trim()
+          : "";
+
+    if (!functionName) {
+      return undefined;
+    }
+
+    return {
+      type: "function",
+      function: {
+        name: functionName
+      }
+    };
+  }
+
   function createRouteProxyChatCompletionsBodyFromResponses(responsesBody) {
     const chatBody = {
       messages: convertRouteProxyResponsesInputToChatMessages(responsesBody.input, responsesBody.instructions),
@@ -1113,6 +1285,22 @@ function createRouteProxyController(options = {}) {
 
     if (Number.isFinite(responsesBody.max_output_tokens)) {
       chatBody.max_tokens = Math.trunc(responsesBody.max_output_tokens);
+    }
+
+    const convertedTools = convertRouteProxyResponsesToolsToChatTools(responsesBody.tools);
+
+    if (convertedTools.length > 0) {
+      chatBody.tools = convertedTools;
+
+      const convertedToolChoice = convertRouteProxyResponsesToolChoiceToChatToolChoice(responsesBody.tool_choice);
+
+      if (convertedToolChoice !== undefined) {
+        chatBody.tool_choice = convertedToolChoice;
+      }
+
+      if (typeof responsesBody.parallel_tool_calls === "boolean") {
+        chatBody.parallel_tool_calls = responsesBody.parallel_tool_calls;
+      }
     }
 
     return chatBody;
@@ -1197,6 +1385,147 @@ function createRouteProxyController(options = {}) {
     return extractRouteProxyTextFromContentParts(system).trim();
   }
 
+  function stringifyRouteProxyAnthropicToolUseInput(input) {
+    if (typeof input === "string") {
+      return input;
+    }
+
+    if (input && typeof input === "object" && !Array.isArray(input)) {
+      try {
+        return JSON.stringify(input);
+      } catch {
+        return "{}";
+      }
+    }
+
+    return "{}";
+  }
+
+  function convertRouteProxyAnthropicToolUseToChatToolCall(part, index) {
+    if (!part || typeof part !== "object" || part.type !== "tool_use") {
+      return undefined;
+    }
+
+    const functionName = typeof part.name === "string" && part.name.trim() ? part.name.trim() : "";
+
+    if (!functionName) {
+      return undefined;
+    }
+
+    return {
+      id: typeof part.id === "string" && part.id.trim() ? part.id.trim() : `toolu_${index}`,
+      type: "function",
+      function: {
+        arguments: stringifyRouteProxyAnthropicToolUseInput(part.input),
+        name: functionName
+      }
+    };
+  }
+
+  function convertRouteProxyAnthropicToolResultToChatToolMessage(part) {
+    if (!part || typeof part !== "object" || part.type !== "tool_result") {
+      return undefined;
+    }
+
+    if (typeof part.tool_use_id !== "string" || !part.tool_use_id.trim()) {
+      return undefined;
+    }
+
+    return {
+      content: extractRouteProxyTextFromContentParts(part.content),
+      role: "tool",
+      tool_call_id: part.tool_use_id.trim()
+    };
+  }
+
+  function convertRouteProxyAnthropicAssistantMessageToChatMessages(message) {
+    const content = Array.isArray(message.content) ? message.content : [];
+    const toolCalls = [];
+
+    for (const part of content) {
+      const toolCall = convertRouteProxyAnthropicToolUseToChatToolCall(part, toolCalls.length);
+
+      if (toolCall) {
+        toolCalls.push(toolCall);
+      }
+    }
+
+    const chatMessage = {
+      content: convertRouteProxyAnthropicContentToChatContent(message.content),
+      role: "assistant"
+    };
+
+    if (toolCalls.length > 0) {
+      chatMessage.tool_calls = toolCalls;
+    }
+
+    return [chatMessage];
+  }
+
+  function convertRouteProxyAnthropicUserMessageToChatMessages(message) {
+    if (!Array.isArray(message.content)) {
+      return [
+        {
+          content: convertRouteProxyAnthropicContentToChatContent(message.content),
+          role: "user"
+        }
+      ];
+    }
+
+    const messages = [];
+    let userContentParts = [];
+    const flushUserContentParts = () => {
+      if (userContentParts.length === 0) {
+        return;
+      }
+
+      messages.push({
+        content: convertRouteProxyAnthropicContentToChatContent(userContentParts),
+        role: "user"
+      });
+      userContentParts = [];
+    };
+
+    for (const part of message.content) {
+      const toolMessage = convertRouteProxyAnthropicToolResultToChatToolMessage(part);
+
+      if (toolMessage) {
+        flushUserContentParts();
+        messages.push(toolMessage);
+        continue;
+      }
+
+      userContentParts.push(part);
+    }
+
+    flushUserContentParts();
+
+    return messages;
+  }
+
+  function convertRouteProxyAnthropicMessageToChatMessages(message) {
+    if (!message || typeof message !== "object") {
+      return [];
+    }
+
+    const role = ["assistant", "system", "user"].includes(message.role) ? message.role : "user";
+
+    if (role === "assistant") {
+      return convertRouteProxyAnthropicAssistantMessageToChatMessages(message);
+    }
+
+    if (role === "user") {
+      return convertRouteProxyAnthropicUserMessageToChatMessages(message);
+    }
+
+    return [
+      {
+        content: convertRouteProxyAnthropicContentToChatContent(message.content),
+        role
+      }
+    ];
+  }
+
   function convertRouteProxyAnthropicMessagesToChatMessages(anthropicBody) {
     const messages = [];
     const systemContent = convertRouteProxyAnthropicSystemToChatContent(anthropicBody.system);
@@ -1210,15 +1539,7 @@ function createRouteProxyController(options = {}) {
 
     if (Array.isArray(anthropicBody.messages)) {
       for (const message of anthropicBody.messages) {
-        if (!message || typeof message !== "object") {
-          continue;
-        }
-
-        const role = ["assistant", "system", "user"].includes(message.role) ? message.role : "user";
-        messages.push({
-          content: convertRouteProxyAnthropicContentToChatContent(message.content),
-          role
-        });
+        messages.push(...convertRouteProxyAnthropicMessageToChatMessages(message));
       }
     }
 
@@ -1230,6 +1551,75 @@ function createRouteProxyController(options = {}) {
     }
 
     return messages;
+  }
+
+  function convertRouteProxyAnthropicToolToChatTool(tool) {
+    if (!tool || typeof tool !== "object" || typeof tool.name !== "string" || !tool.name.trim()) {
+      return undefined;
+    }
+
+    if (!tool.input_schema || typeof tool.input_schema !== "object" || Array.isArray(tool.input_schema)) {
+      return undefined;
+    }
+
+    const convertedTool = {
+      type: "function",
+      function: {
+        name: tool.name.trim(),
+        parameters: tool.input_schema
+      }
+    };
+
+    if (typeof tool.description === "string" && tool.description.trim()) {
+      convertedTool.function.description = tool.description;
+    }
+
+    if (typeof tool.strict === "boolean") {
+      convertedTool.function.strict = tool.strict;
+    }
+
+    return convertedTool;
+  }
+
+  function convertRouteProxyAnthropicToolsToChatTools(tools) {
+    if (!Array.isArray(tools)) {
+      return [];
+    }
+
+    return tools.map(convertRouteProxyAnthropicToolToChatTool).filter(Boolean);
+  }
+
+  function convertRouteProxyAnthropicToolChoiceToChatToolChoice(toolChoice) {
+    if (!toolChoice || typeof toolChoice !== "object") {
+      return undefined;
+    }
+
+    if (toolChoice.type === "auto") {
+      return "auto";
+    }
+
+    if (toolChoice.type === "none") {
+      return "none";
+    }
+
+    if (toolChoice.type === "any") {
+      return "required";
+    }
+
+    if (toolChoice.type !== "tool" || typeof toolChoice.name !== "string" || !toolChoice.name.trim()) {
+      return undefined;
+    }
+
+    return {
+      type: "function",
+      function: {
+        name: toolChoice.name.trim()
+      }
+    };
+  }
+
+  function shouldDisableRouteProxyAnthropicParallelToolCalls(toolChoice) {
+    return Boolean(toolChoice && typeof toolChoice === "object" && toolChoice.disable_parallel_tool_use === true);
   }
 
   function createRouteProxyChatCompletionsBodyFromAnthropicMessages(anthropicBody) {
@@ -1258,6 +1648,22 @@ function createRouteProxyController(options = {}) {
 
       if (typeof userId === "string" && userId) {
         chatBody.user = userId;
+      }
+    }
+
+    const convertedTools = convertRouteProxyAnthropicToolsToChatTools(anthropicBody.tools);
+
+    if (convertedTools.length > 0) {
+      chatBody.tools = convertedTools;
+
+      const convertedToolChoice = convertRouteProxyAnthropicToolChoiceToChatToolChoice(anthropicBody.tool_choice);
+
+      if (convertedToolChoice !== undefined) {
+        chatBody.tool_choice = convertedToolChoice;
+      }
+
+      if (shouldDisableRouteProxyAnthropicParallelToolCalls(anthropicBody.tool_choice)) {
+        chatBody.parallel_tool_calls = false;
       }
     }
 
@@ -1410,11 +1816,110 @@ function createRouteProxyController(options = {}) {
     return Object.keys(convertedUsage).length > 0 ? convertedUsage : undefined;
   }
 
+  function normalizeRouteProxyFunctionCallArguments(value) {
+    if (typeof value === "string") {
+      return value;
+    }
+
+    if (value && typeof value === "object") {
+      try {
+        return JSON.stringify(value);
+      } catch {
+        return "";
+      }
+    }
+
+    return "";
+  }
+
+  function createRouteProxyResponsesFunctionCallItem(toolCall, index) {
+    if (!toolCall || typeof toolCall !== "object") {
+      return undefined;
+    }
+
+    const functionCall = toolCall.function && typeof toolCall.function === "object" ? toolCall.function : {};
+    const functionName = typeof functionCall.name === "string" && functionCall.name.trim() ? functionCall.name.trim() : "";
+
+    if (!functionName) {
+      return undefined;
+    }
+
+    const callId = typeof toolCall.id === "string" && toolCall.id.trim() ? toolCall.id.trim() : `call_${index}`;
+
+    return {
+      arguments: normalizeRouteProxyFunctionCallArguments(functionCall.arguments),
+      call_id: callId,
+      name: functionName,
+      status: "completed",
+      type: "function_call"
+    };
+  }
+
+  function createRouteProxyResponsesFunctionCallOutputItems(message) {
+    const outputItems = [];
+
+    if (Array.isArray(message?.tool_calls)) {
+      for (let index = 0; index < message.tool_calls.length; index += 1) {
+        const toolCall = message.tool_calls[index];
+
+        if (toolCall?.type && toolCall.type !== "function") {
+          continue;
+        }
+
+        const outputItem = createRouteProxyResponsesFunctionCallItem(toolCall, outputItems.length);
+
+        if (outputItem) {
+          outputItems.push(outputItem);
+        }
+      }
+    }
+
+    if (
+      outputItems.length === 0 &&
+      message?.function_call &&
+      typeof message.function_call === "object" &&
+      typeof message.function_call.name === "string"
+    ) {
+      const outputItem = createRouteProxyResponsesFunctionCallItem(
+        {
+          function: message.function_call,
+          id: "call_0",
+          type: "function"
+        },
+        0
+      );
+
+      if (outputItem) {
+        outputItems.push(outputItem);
+      }
+    }
+
+    return outputItems;
+  }
+
+  function createRouteProxyResponsesMessageOutputItem(outputText, role) {
+    return {
+      content: [
+        {
+          annotations: [],
+          text: outputText,
+          type: "output_text"
+        }
+      ],
+      id: "msg_0",
+      role: normalizeRouteProxyConvertedRole(role),
+      status: "completed",
+      type: "message"
+    };
+  }
+
   function createRouteProxyResponsesResponsePayload({
     createdAt,
+    functionCalls = [],
     id,
     includeOutput = true,
     model,
+    orderedOutputItems,
     outputText,
     role = "assistant",
     status = "completed",
@@ -1431,21 +1936,15 @@ function createRouteProxyController(options = {}) {
     };
 
     if (includeOutput) {
-      response.output = [
-        {
-          content: [
-            {
-              annotations: [],
-              text: outputText,
-              type: "output_text"
-            }
-          ],
-          id: "msg_0",
-          role: normalizeRouteProxyConvertedRole(role),
-          status: "completed",
-          type: "message"
+      if (Array.isArray(orderedOutputItems)) {
+        response.output.push(...orderedOutputItems);
+      } else {
+        if (outputText || functionCalls.length === 0) {
+          response.output.push(createRouteProxyResponsesMessageOutputItem(outputText, role));
         }
-      ];
+
+        response.output.push(...functionCalls);
+      }
     }
 
     const normalizedUsage = normalizeRouteProxyConvertedResponsesUsage(usage);
@@ -1467,6 +1966,7 @@ function createRouteProxyController(options = {}) {
     return createRouteProxyResponsesResponsePayload({
       createdAt: upstreamJson?.created,
       id: upstreamJson?.id,
+      functionCalls: createRouteProxyResponsesFunctionCallOutputItems(message),
       model,
       outputText,
       role: message.role,
@@ -1511,18 +2011,107 @@ function createRouteProxyController(options = {}) {
     return Object.keys(convertedUsage).length > 0 ? convertedUsage : undefined;
   }
 
+  function parseRouteProxyAnthropicToolUseInput(value) {
+    if (value && typeof value === "object" && !Array.isArray(value)) {
+      return value;
+    }
+
+    if (typeof value === "string" && value.trim()) {
+      try {
+        const parsedValue = JSON.parse(value);
+
+        if (parsedValue && typeof parsedValue === "object" && !Array.isArray(parsedValue)) {
+          return parsedValue;
+        }
+      } catch {
+        return {};
+      }
+    }
+
+    return {};
+  }
+
+  function createRouteProxyAnthropicToolUseContentBlock(toolCall, index) {
+    if (!toolCall || typeof toolCall !== "object") {
+      return undefined;
+    }
+
+    const functionCall = toolCall.function && typeof toolCall.function === "object" ? toolCall.function : {};
+    const functionName = typeof functionCall.name === "string" && functionCall.name.trim() ? functionCall.name.trim() : "";
+
+    if (!functionName) {
+      return undefined;
+    }
+
+    return {
+      id: typeof toolCall.id === "string" && toolCall.id.trim() ? toolCall.id.trim() : `toolu_${index}`,
+      input: parseRouteProxyAnthropicToolUseInput(functionCall.arguments),
+      name: functionName,
+      type: "tool_use"
+    };
+  }
+
+  function createRouteProxyAnthropicToolUseContentBlocks(message) {
+    const contentBlocks = [];
+
+    if (Array.isArray(message?.tool_calls)) {
+      for (let index = 0; index < message.tool_calls.length; index += 1) {
+        const toolCall = message.tool_calls[index];
+
+        if (toolCall?.type && toolCall.type !== "function") {
+          continue;
+        }
+
+        const contentBlock = createRouteProxyAnthropicToolUseContentBlock(toolCall, contentBlocks.length);
+
+        if (contentBlock) {
+          contentBlocks.push(contentBlock);
+        }
+      }
+    }
+
+    if (
+      contentBlocks.length === 0 &&
+      message?.function_call &&
+      typeof message.function_call === "object" &&
+      typeof message.function_call.name === "string"
+    ) {
+      const contentBlock = createRouteProxyAnthropicToolUseContentBlock(
+        {
+          function: message.function_call,
+          id: "toolu_0",
+          type: "function"
+        },
+        0
+      );
+
+      if (contentBlock) {
+        contentBlocks.push(contentBlock);
+      }
+    }
+
+    return contentBlocks;
+  }
+
   function convertRouteProxyChatCompletionsResponseToAnthropicMessages(upstreamJson, requestModel) {
     const choices = Array.isArray(upstreamJson?.choices) ? upstreamJson.choices : [];
     const firstChoice = choices[0] && typeof choices[0] === "object" ? choices[0] : {};
     const message = firstChoice.message && typeof firstChoice.message === "object" ? firstChoice.message : {};
     const outputText = extractRouteProxyTextFromContentParts(message.content).trim();
+    const toolUseContentBlocks = createRouteProxyAnthropicToolUseContentBlocks(message);
+    const content = [];
+
+    if (outputText || toolUseContentBlocks.length === 0) {
+      content.push({
+        text: outputText,
+        type: "text"
+      });
+    }
+
+    content.push(...toolUseContentBlocks);
+
     const response = {
-      content: [
-        {
-          text: outputText,
-          type: "text"
-        }
-      ],
+      content,
       id: normalizeRouteProxyConvertedMetadataText(upstreamJson?.id, `msg_${Date.now()}`),
       model: normalizeRouteProxyConvertedMetadataText(upstreamJson?.model, requestModel),
       role: "assistant",
@@ -1619,6 +2208,56 @@ function createRouteProxyController(options = {}) {
     return "";
   }
 
+  function extractRouteProxyChatCompletionsStreamToolCallDeltas(value) {
+    const choice = extractRouteProxyChatCompletionsStreamChoice(value);
+    const delta = choice.delta && typeof choice.delta === "object" ? choice.delta : {};
+
+    if (!Array.isArray(delta.tool_calls)) {
+      return [];
+    }
+
+    return delta.tool_calls.filter((toolCallDelta) => toolCallDelta && typeof toolCallDelta === "object");
+  }
+
+  function getRouteProxyToolCallDeltaIndex(toolCallDelta, fallbackIndex) {
+    return Number.isInteger(toolCallDelta?.index) && toolCallDelta.index >= 0 ? toolCallDelta.index : fallbackIndex;
+  }
+
+  function getRouteProxyToolCallDeltaFunction(toolCallDelta) {
+    return toolCallDelta?.function && typeof toolCallDelta.function === "object" ? toolCallDelta.function : {};
+  }
+
+  function updateRouteProxyStreamToolCallState(state, toolCallDelta) {
+    const functionDelta = getRouteProxyToolCallDeltaFunction(toolCallDelta);
+
+    if (typeof toolCallDelta.id === "string" && toolCallDelta.id.trim()) {
+      state.callId = toolCallDelta.id.trim();
+      state.itemId = toolCallDelta.id.trim();
+    }
+
+    if (typeof functionDelta.name === "string" && functionDelta.name.trim()) {
+      state.name = functionDelta.name.trim();
+    }
+
+    return typeof functionDelta.arguments === "string" ? functionDelta.arguments : "";
+  }
+
+  function normalizeRouteProxyStreamToolCallState(state, idPrefix) {
+    if (!state.callId) {
+      state.callId = `${idPrefix}_${state.index}`;
+    }
+
+    if (!state.itemId) {
+      state.itemId = state.callId;
+    }
+
+    if (!state.name) {
+      state.name = `function_${state.index}`;
+    }
+
+    return state;
+  }
+
   function writeRouteProxyResponsesSseEvent(nodeResponse, eventName, payload) {
     nodeResponse.write(`event: ${eventName}\n`);
     nodeResponse.write(`data: ${JSON.stringify(payload)}\n\n`);
@@ -1662,8 +2301,57 @@ function createRouteProxyController(options = {}) {
     let stopReason = "end_turn";
     let usage;
     let messageStarted = false;
-    let contentStarted = false;
+    const toolUseStates = new Map();
+    let nextContentIndex = 0;
+    let textContentIndex;
+    let textContentStarted = false;
+    let textContentStopped = false;
     let completed = false;
+
+    const getTextContentIndex = () => {
+      if (textContentIndex === undefined) {
+        textContentIndex = nextContentIndex;
+        nextContentIndex += 1;
+      }
+
+      return textContentIndex;
+    };
+
+    const getOrderedToolUseStates = () =>
+      Array.from(toolUseStates.values()).sort((left, right) => left.contentIndex - right.contentIndex);
+
+    const getToolUseState = (toolCallDelta, fallbackIndex) => {
+      const index = getRouteProxyToolCallDeltaIndex(toolCallDelta, fallbackIndex);
+      let state = toolUseStates.get(index);
+
+      if (!state) {
+        state = {
+          arguments: "",
+          callId: "",
+          contentIndex: nextContentIndex,
+          index,
+          itemId: "",
+          name: "",
+          started: false,
+          stopped: false
+        };
+        nextContentIndex += 1;
+        toolUseStates.set(index, state);
+      }
+
+      return state;
+    };
+
+    const createToolUseContentBlock = (state) => {
+      normalizeRouteProxyStreamToolCallState(state, "toolu");
+
+      return {
+        id: state.itemId,
+        input: {},
+        name: state.name,
+        type: "tool_use"
+      };
+    };
 
     const emitMessageStart = () => {
       if (messageStarted) {
@@ -1689,20 +2377,94 @@ function createRouteProxyController(options = {}) {
       });
     };
 
-    const emitContentStart = () => {
-      if (contentStarted) {
+    const emitStartedToolUseStops = () => {
+      for (const state of getOrderedToolUseStates()) {
+        if (!state.started || state.stopped) {
+          continue;
+        }
+
+        state.stopped = true;
+        writeRouteProxyAnthropicSseEvent(nodeResponse, "content_block_stop", {
+          index: state.contentIndex,
+          type: "content_block_stop"
+        });
+      }
+    };
+
+    const emitTextContentStart = () => {
+      if (textContentStarted) {
         return;
       }
 
       emitMessageStart();
-      contentStarted = true;
+      emitStartedToolUseStops();
+      textContentStarted = true;
       writeRouteProxyAnthropicSseEvent(nodeResponse, "content_block_start", {
         content_block: {
           text: "",
           type: "text"
         },
-        index: 0,
+        index: getTextContentIndex(),
         type: "content_block_start"
+      });
+    };
+
+    const emitTextContentStop = () => {
+      if (!textContentStarted || textContentStopped) {
+        return;
+      }
+
+      textContentStopped = true;
+      writeRouteProxyAnthropicSseEvent(nodeResponse, "content_block_stop", {
+        index: getTextContentIndex(),
+        type: "content_block_stop"
+      });
+    };
+
+    const emitToolUseStart = (state) => {
+      if (state.started) {
+        return;
+      }
+
+      emitMessageStart();
+      emitTextContentStop();
+      state.started = true;
+      writeRouteProxyAnthropicSseEvent(nodeResponse, "content_block_start", {
+        content_block: createToolUseContentBlock(state),
+        index: state.contentIndex,
+        type: "content_block_start"
+      });
+    };
+
+    const emitToolUseArgumentDelta = (state, delta) => {
+      if (!delta) {
+        return;
+      }
+
+      emitToolUseStart(state);
+      assertRouteProxyConvertedStreamOutputWithinLimit(state.arguments, delta);
+      state.arguments += delta;
+      writeRouteProxyAnthropicSseEvent(nodeResponse, "content_block_delta", {
+        delta: {
+          partial_json: delta,
+          type: "input_json_delta"
+        },
+        index: state.contentIndex,
+        type: "content_block_delta"
+      });
+    };
+
+    const emitToolUseStop = (state) => {
+      emitToolUseStart(state);
+
+      if (state.stopped) {
+        return;
+      }
+
+      state.stopped = true;
+      writeRouteProxyAnthropicSseEvent(nodeResponse, "content_block_stop", {
+        index: state.contentIndex,
+        type: "content_block_stop"
       });
     };
 
@@ -1711,12 +2473,19 @@ function createRouteProxyController(options = {}) {
         return;
       }
 
-      emitContentStart();
       completed = true;
-      writeRouteProxyAnthropicSseEvent(nodeResponse, "content_block_stop", {
-        index: 0,
-        type: "content_block_stop"
-      });
+      const toolUseStatesForCompletion = getOrderedToolUseStates();
+
+      if (!textContentStarted && toolUseStatesForCompletion.length === 0) {
+        emitTextContentStart();
+      }
+
+      emitTextContentStop();
+
+      for (const state of toolUseStatesForCompletion) {
+        emitToolUseStop(state);
+      }
+
       writeRouteProxyAnthropicSseEvent(nodeResponse, "message_delta", {
         delta: {
           stop_reason: stopReason,
@@ -1782,15 +2551,29 @@ function createRouteProxyController(options = {}) {
       const delta = extractRouteProxyChatCompletionsStreamDelta(value);
 
       if (delta) {
-        emitContentStart();
+        emitTextContentStart();
         writeRouteProxyAnthropicSseEvent(nodeResponse, "content_block_delta", {
           delta: {
             text: delta,
             type: "text_delta"
           },
-          index: 0,
+          index: getTextContentIndex(),
           type: "content_block_delta"
         });
+      }
+
+      const toolCallDeltas = extractRouteProxyChatCompletionsStreamToolCallDeltas(value);
+
+      for (let index = 0; index < toolCallDeltas.length; index += 1) {
+        const toolCallDelta = toolCallDeltas[index];
+        const state = getToolUseState(toolCallDelta, index);
+        const argumentsDelta = updateRouteProxyStreamToolCallState(state, toolCallDelta);
+
+        if (argumentsDelta) {
+          emitToolUseArgumentDelta(state, argumentsDelta);
+        } else if (state.callId || state.name) {
+          emitToolUseStart(state);
+        }
       }
     };
 
@@ -1853,8 +2636,122 @@ function createRouteProxyController(options = {}) {
     let outputText = "";
     let role = "assistant";
     let usage;
+    const functionCallStates = new Map();
+    let nextOutputIndex = 0;
+    let textOutputIndex;
     let created = false;
     let completed = false;
+
+    const getTextOutputIndex = () => {
+      if (textOutputIndex === undefined) {
+        textOutputIndex = nextOutputIndex;
+        nextOutputIndex += 1;
+      }
+
+      return textOutputIndex;
+    };
+
+    const getOrderedFunctionCallStates = () =>
+      Array.from(functionCallStates.values()).sort((left, right) => left.outputIndex - right.outputIndex);
+
+    const getFunctionCallState = (toolCallDelta, fallbackIndex) => {
+      const index = getRouteProxyToolCallDeltaIndex(toolCallDelta, fallbackIndex);
+      let state = functionCallStates.get(index);
+
+      if (!state) {
+        state = {
+          arguments: "",
+          argumentsDone: false,
+          callId: "",
+          index,
+          itemDone: false,
+          itemId: "",
+          name: "",
+          outputIndex: nextOutputIndex,
+          started: false
+        };
+        nextOutputIndex += 1;
+        functionCallStates.set(index, state);
+      }
+
+      return state;
+    };
+
+    const createFunctionCallItem = (state, status = "completed") => {
+      normalizeRouteProxyStreamToolCallState(state, "call");
+
+      return {
+        arguments: state.arguments,
+        call_id: state.callId,
+        id: state.itemId,
+        name: state.name,
+        status,
+        type: "function_call"
+      };
+    };
+
+    const emitFunctionCallAdded = (state) => {
+      if (state.started) {
+        return;
+      }
+
+      emitCreated();
+      state.started = true;
+      writeRouteProxyResponsesSseEvent(nodeResponse, "response.output_item.added", {
+        item: createFunctionCallItem(state, "in_progress"),
+        output_index: state.outputIndex,
+        type: "response.output_item.added"
+      });
+    };
+
+    const emitFunctionCallArgumentDelta = (state, delta) => {
+      if (!delta) {
+        return;
+      }
+
+      emitFunctionCallAdded(state);
+      assertRouteProxyConvertedStreamOutputWithinLimit(state.arguments, delta);
+      state.arguments += delta;
+      writeRouteProxyResponsesSseEvent(nodeResponse, "response.function_call_arguments.delta", {
+        delta,
+        item_id: state.itemId,
+        output_index: state.outputIndex,
+        type: "response.function_call_arguments.delta"
+      });
+    };
+
+    const emitFunctionCallDone = (state) => {
+      emitFunctionCallAdded(state);
+
+      if (!state.argumentsDone) {
+        state.argumentsDone = true;
+        writeRouteProxyResponsesSseEvent(nodeResponse, "response.function_call_arguments.done", {
+          arguments: state.arguments,
+          item_id: state.itemId,
+          output_index: state.outputIndex,
+          type: "response.function_call_arguments.done"
+        });
+      }
+
+      if (!state.itemDone) {
+        state.itemDone = true;
+        writeRouteProxyResponsesSseEvent(nodeResponse, "response.output_item.done", {
+          item: createFunctionCallItem(state, "completed"),
+          output_index: state.outputIndex,
+          type: "response.output_item.done"
+        });
+      }
+    };
+
+    const emitStartedFunctionCallDones = () => {
+      for (const state of getOrderedFunctionCallStates()) {
+        if (!state.started || state.itemDone) {
+          continue;
+        }
+
+        emitFunctionCallDone(state);
+      }
+    };
 
     const emitCreated = () => {
       if (created) {
@@ -1883,17 +2780,45 @@ function createRouteProxyController(options = {}) {
 
       emitCreated();
       completed = true;
-      writeRouteProxyResponsesSseEvent(nodeResponse, "response.output_text.done", {
-        content_index: 0,
-        output_index: 0,
-        text: outputText,
-        type: "response.output_text.done"
-      });
+      const functionCallStatesForCompletion = getOrderedFunctionCallStates();
+      const orderedOutputItems = [];
+
+      if (outputText || functionCallStatesForCompletion.length === 0) {
+        orderedOutputItems.push({
+          item: createRouteProxyResponsesMessageOutputItem(outputText, role),
+          outputIndex: getTextOutputIndex()
+        });
+      }
+
+      for (const state of functionCallStatesForCompletion) {
+        orderedOutputItems.push({
+          item: createFunctionCallItem(state, "completed"),
+          outputIndex: state.outputIndex
+        });
+      }
+
+      if (outputText || functionCallStatesForCompletion.length === 0) {
+        writeRouteProxyResponsesSseEvent(nodeResponse, "response.output_text.done", {
+          content_index: 0,
+          output_index: getTextOutputIndex(),
+          text: outputText,
+          type: "response.output_text.done"
+        });
+      }
+
+      for (const state of functionCallStatesForCompletion) {
+        emitFunctionCallDone(state);
+      }
+
       writeRouteProxyResponsesSseEvent(nodeResponse, "response.completed", {
         response: createRouteProxyResponsesResponsePayload({
           createdAt,
+          functionCalls: functionCallStatesForCompletion.map((state) => createFunctionCallItem(state, "completed")),
           id: responseId,
           model,
+          orderedOutputItems: orderedOutputItems
+            .sort((left, right) => left.outputIndex - right.outputIndex)
+            .map(({ item }) => item),
           outputText,
           role,
           usage
@@ -1953,14 +2878,29 @@ function createRouteProxyController(options = {}) {
       const delta = extractRouteProxyChatCompletionsStreamDelta(value);
 
       if (delta) {
+        emitStartedFunctionCallDones();
         assertRouteProxyConvertedStreamOutputWithinLimit(outputText, delta);
         outputText += delta;
         writeRouteProxyResponsesSseEvent(nodeResponse, "response.output_text.delta", {
           content_index: 0,
           delta,
-          output_index: 0,
+          output_index: getTextOutputIndex(),
           type: "response.output_text.delta"
         });
+      }
+
+      const toolCallDeltas = extractRouteProxyChatCompletionsStreamToolCallDeltas(value);
+
+      for (let index = 0; index < toolCallDeltas.length; index += 1) {
+        const toolCallDelta = toolCallDeltas[index];
+        const state = getFunctionCallState(toolCallDelta, index);
+        const argumentsDelta = updateRouteProxyStreamToolCallState(state, toolCallDelta);
+
+        if (argumentsDelta) {
+          emitFunctionCallArgumentDelta(state, argumentsDelta);
+        } else if (state.callId || state.name) {
+          emitFunctionCallAdded(state);
+        }
       }
     };
 

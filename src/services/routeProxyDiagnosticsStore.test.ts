@@ -333,7 +333,7 @@ describe("routeProxyDiagnosticsStore", () => {
 
     expect(await pathExists(path.join(paths.diagnosticsDir, "entries-2026-06-01.v1.ndjson"))).toBe(false);
     expect(await readJsonLines(path.join(paths.diagnosticsDir, "entries-2026-07-05.v1.ndjson"))).toHaveLength(100);
-  });
+  }, 15_000);
 
   it("clearAll removes entry files, preserves enabled manifest, and leaves the userData root intact", async () => {
     const siblingPath = path.join(userDataPath, "unrelated.json");

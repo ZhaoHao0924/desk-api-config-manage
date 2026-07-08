@@ -1376,6 +1376,319 @@ describe("routeProxyServer", () => {
     }
   });
 
+  it("converts local Responses function tools and upstream tool calls", async () => {
+    const fetchCalls: Array<{
+      body: Record<string, unknown>;
+      input: string;
+    }> = [];
+    const controller = createRouteProxyController({
+      providerFetch: async (input: string, init?: RequestInit) => {
+        const bodyText = Buffer.isBuffer(init?.body) ? init.body.toString("utf8") : String(init?.body ?? "");
+        fetchCalls.push({
+          body: JSON.parse(bodyText),
+          input
+        });
+
+        return new Response(
+          JSON.stringify({
+            choices: [
+              {
+                finish_reason: "tool_calls",
+                message: {
+                  content: "",
+                  role: "assistant",
+                  tool_calls: [
+                    {
+                      function: {
+                        arguments: "{\"city\":\"Shanghai\"}",
+                        name: "lookup_weather"
+                      },
+                      id: "call_weather",
+                      type: "function"
+                    }
+                  ]
+                }
+              }
+            ],
+            created: 1_788_000_010,
+            id: "chatcmpl-tool",
+            model: "upstream-model",
+            usage: {
+              completion_tokens: 5,
+              prompt_tokens: 11,
+              total_tokens: 16
+            }
+          }),
+          {
+            headers: {
+              "content-type": "application/json"
+            },
+            status: 200
+          }
+        );
+      }
+    });
+
+    try {
+      const target = createRouteProxyTarget("primary", "http://127.0.0.1:3001/v1");
+      const proxyPort = await getFreePort();
+      const status = await controller.start({
+        cooldownMs: 30_000,
+        failureThreshold: 1,
+        listenAddress: "127.0.0.1",
+        listenPort: proxyPort,
+        target,
+        targets: [target],
+        timeoutMs: 5_000
+      });
+      const weatherToolParameters = {
+        additionalProperties: false,
+        properties: {
+          city: {
+            type: "string"
+          }
+        },
+        required: ["city"],
+        type: "object"
+      };
+      const response = await fetch(`${status.proxyUrl}v1/responses`, {
+        body: JSON.stringify({
+          input: "Need weather",
+          model: "client-model",
+          parallel_tool_calls: false,
+          tool_choice: {
+            name: "lookup_weather",
+            type: "function"
+          },
+          tools: [
+            {
+              description: "Lookup weather.",
+              name: "lookup_weather",
+              parameters: weatherToolParameters,
+              strict: true,
+              type: "function"
+            }
+          ]
+        }),
+        headers: {
+          "content-type": "application/json"
+        },
+        method: "POST"
+      });
+
+      expect(response.status).toBe(200);
+      await expect(response.json()).resolves.toMatchObject({
+        id: "chatcmpl-tool",
+        model: "upstream-model",
+        object: "response",
+        output: [
+          {
+            arguments: "{\"city\":\"Shanghai\"}",
+            call_id: "call_weather",
+            name: "lookup_weather",
+            status: "completed",
+            type: "function_call"
+          }
+        ],
+        output_text: "",
+        status: "completed",
+        usage: {
+          input_tokens: 11,
+          output_tokens: 5,
+          total_tokens: 16
+        }
+      });
+      expect(fetchCalls).toHaveLength(1);
+      expect(fetchCalls[0].input).toBe("http://127.0.0.1:3001/v1/chat/completions");
+      expect(fetchCalls[0].body).toMatchObject({
+        messages: [
+          {
+            content: "Need weather",
+            role: "user"
+          }
+        ],
+        model: "client-model",
+        parallel_tool_calls: false,
+        stream: false,
+        tool_choice: {
+          function: {
+            name: "lookup_weather"
+          },
+          type: "function"
+        },
+        tools: [
+          {
+            function: {
+              description: "Lookup weather.",
+              name: "lookup_weather",
+              parameters: weatherToolParameters,
+              strict: true
+            },
+            type: "function"
+          }
+        ]
+      });
+    } finally {
+      await controller.stop();
+    }
+  });
+
+  it("converts local Responses function-call history to upstream chat completions messages", async () => {
+    const fetchCalls: Array<{
+      body: Record<string, unknown>;
+      input: string;
+    }> = [];
+    const controller = createRouteProxyController({
+      providerFetch: async (input: string, init?: RequestInit) => {
+        const bodyText = Buffer.isBuffer(init?.body) ? init.body.toString("utf8") : String(init?.body ?? "");
+        fetchCalls.push({
+          body: JSON.parse(bodyText),
+          input
+        });
+
+        return new Response(
+          JSON.stringify({
+            choices: [
+              {
+                finish_reason: "stop",
+                message: {
+                  content: "final weather reply",
+                  role: "assistant"
+                }
+              }
+            ],
+            id: "chatcmpl-responses-tool-history",
+            model: "upstream-model"
+          }),
+          {
+            headers: {
+              "content-type": "application/json"
+            },
+            status: 200
+          }
+        );
+      }
+    });
+
+    try {
+      const target = createRouteProxyTarget("primary", "http://127.0.0.1:3001/v1");
+      const proxyPort = await getFreePort();
+      const status = await controller.start({
+        cooldownMs: 30_000,
+        failureThreshold: 1,
+        listenAddress: "127.0.0.1",
+        listenPort: proxyPort,
+        target,
+        targets: [target],
+        timeoutMs: 5_000
+      });
+      const response = await fetch(`${status.proxyUrl}v1/responses`, {
+        body: JSON.stringify({
+          input: [
+            {
+              content: "Need weather",
+              role: "user"
+            },
+            {
+              arguments: "{\"city\":\"Shanghai\"}",
+              call_id: "call_weather",
+              name: "lookup_weather",
+              type: "function_call"
+            },
+            {
+              call_id: "call_weather",
+              output: [
+                {
+                  text: "Sunny, 27C",
+                  type: "output_text"
+                }
+              ],
+              type: "function_call_output"
+            },
+            {
+              content: [
+                {
+                  text: "Use that result.",
+                  type: "input_text"
+                }
+              ],
+              role: "user"
+            }
+          ],
+          model: "client-model"
+        }),
+        headers: {
+          "content-type": "application/json"
+        },
+        method: "POST"
+      });
+
+      expect(response.status).toBe(200);
+      await expect(response.json()).resolves.toMatchObject({
+        id: "chatcmpl-responses-tool-history",
+        model: "upstream-model",
+        output: [
+          {
+            content: [
+              {
+                text: "final weather reply",
+                type: "output_text"
+              }
+            ],
+            role: "assistant",
+            type: "message"
+          }
+        ],
+        output_text: "final weather reply"
+      });
+      expect(fetchCalls).toEqual([
+        {
+          body: {
+            messages: [
+              {
+                content: "Need weather",
+                role: "user"
+              },
+              {
+                content: "",
+                role: "assistant",
+                tool_calls: [
+                  {
+                    function: {
+                      arguments: "{\"city\":\"Shanghai\"}",
+                      name: "lookup_weather"
+                    },
+                    id: "call_weather",
+                    type: "function"
+                  }
+                ]
+              },
+              {
+                content: "Sunny, 27C",
+                role: "tool",
+                tool_call_id: "call_weather"
+              },
+              {
+                content: [
+                  {
+                    text: "Use that result.",
+                    type: "text"
+                  }
+                ],
+                role: "user"
+              }
+            ],
+            model: "client-model",
+            stream: false
+          },
+          input: "http://127.0.0.1:3001/v1/chat/completions"
+        }
+      ]);
+    } finally {
+      await controller.stop();
+    }
+  });
+
   it("converts local Responses multimodal input parts to upstream chat completions content parts", async () => {
     const fetchCalls: Array<{
       body: Record<string, unknown>;
@@ -2028,6 +2341,613 @@ describe("routeProxyServer", () => {
           path: "/v1/responses",
           statusCode: 200,
           targetConfigId: "primary"
+        }
+      ]);
+    } finally {
+      await controller.stop();
+    }
+  });
+
+  it("converts streaming local Responses tool-call deltas from upstream chat completions SSE", async () => {
+    const fetchCalls: Array<{
+      body: Record<string, unknown>;
+      input: string;
+    }> = [];
+    const controller = createRouteProxyController({
+      providerFetch: async (input: string, init?: RequestInit) => {
+        const bodyText = Buffer.isBuffer(init?.body) ? init.body.toString("utf8") : String(init?.body ?? "");
+        const encoder = new TextEncoder();
+        const stream = new ReadableStream({
+          start(streamController) {
+            for (const chunk of [
+              `data: ${JSON.stringify({
+                choices: [
+                  {
+                    delta: {
+                      role: "assistant",
+                      tool_calls: [
+                        {
+                          function: {
+                            arguments: "{\"city\"",
+                            name: "lookup_weather"
+                          },
+                          id: "call_weather",
+                          index: 0,
+                          type: "function"
+                        }
+                      ]
+                    },
+                    index: 0
+                  }
+                ],
+                created: 1_788_000_010,
+                id: "chatcmpl-tool-stream",
+                model: "upstream-stream"
+              })}\n\n`,
+              `data: ${JSON.stringify({
+                choices: [
+                  {
+                    delta: {
+                      tool_calls: [
+                        {
+                          function: {
+                            arguments: ":\"Shanghai\"}"
+                          },
+                          index: 0
+                        }
+                      ]
+                    },
+                    finish_reason: "tool_calls",
+                    index: 0
+                  }
+                ],
+                id: "chatcmpl-tool-stream",
+                model: "upstream-stream",
+                usage: {
+                  completion_tokens: 4,
+                  prompt_tokens: 9,
+                  total_tokens: 13
+                }
+              })}\n\n`,
+              "data: [DONE]\n\n"
+            ]) {
+              streamController.enqueue(encoder.encode(chunk));
+            }
+
+            streamController.close();
+          }
+        });
+
+        fetchCalls.push({
+          body: JSON.parse(bodyText),
+          input
+        });
+
+        return new Response(stream, {
+          headers: {
+            "content-type": "text/event-stream"
+          },
+          status: 200
+        });
+      }
+    });
+
+    try {
+      const target = createRouteProxyTarget("primary", "http://127.0.0.1:3001/v1");
+      const proxyPort = await getFreePort();
+      const status = await controller.start({
+        cooldownMs: 30_000,
+        failureThreshold: 1,
+        listenAddress: "127.0.0.1",
+        listenPort: proxyPort,
+        target,
+        targets: [target],
+        timeoutMs: 5_000
+      });
+      const weatherToolParameters = {
+        properties: {
+          city: {
+            type: "string"
+          }
+        },
+        required: ["city"],
+        type: "object"
+      };
+      const response = await fetch(`${status.proxyUrl}v1/responses`, {
+        body: JSON.stringify({
+          input: "Need weather",
+          model: "client-model",
+          stream: true,
+          tool_choice: "required",
+          tools: [
+            {
+              name: "lookup_weather",
+              parameters: weatherToolParameters,
+              type: "function"
+            }
+          ]
+        }),
+        headers: {
+          "content-type": "application/json"
+        },
+        method: "POST"
+      });
+      const responseText = await response.text();
+
+      expect(response.status).toBe(200);
+      expect(responseText).toContain("event: response.created");
+      expect(responseText).toContain("event: response.output_item.added");
+      expect(responseText).toContain("event: response.function_call_arguments.delta");
+      expect(responseText).toContain("event: response.function_call_arguments.done");
+      expect(responseText).toContain("event: response.output_item.done");
+      expect(responseText).toContain("event: response.completed");
+      expect(responseText).toContain('"call_id":"call_weather"');
+      expect(responseText).toContain('"name":"lookup_weather"');
+      expect(responseText).toContain('"arguments":"{\\"city\\":\\"Shanghai\\"}"');
+      expect(responseText).toContain('"output_text":""');
+      expect(responseText).toContain('"usage":{"input_tokens":9,"output_tokens":4,"total_tokens":13}');
+      expect(responseText).not.toContain("event: response.output_text.delta");
+      expect(responseText).not.toContain("event: response.output_text.done");
+      expect(fetchCalls).toEqual([
+        {
+          body: {
+            messages: [
+              {
+                content: "Need weather",
+                role: "user"
+              }
+            ],
+            model: "client-model",
+            stream: true,
+            tool_choice: "required",
+            tools: [
+              {
+                function: {
+                  name: "lookup_weather",
+                  parameters: weatherToolParameters
+                },
+                type: "function"
+              }
+            ]
+          },
+          input: "http://127.0.0.1:3001/v1/chat/completions"
+        }
+      ]);
+    } finally {
+      await controller.stop();
+    }
+  });
+
+  it("keeps multiple streaming Responses tool-call deltas separated by upstream index", async () => {
+    const controller = createRouteProxyController({
+      providerFetch: async () => {
+        const encoder = new TextEncoder();
+        const stream = new ReadableStream({
+          start(streamController) {
+            for (const chunk of [
+              `data: ${JSON.stringify({
+                choices: [
+                  {
+                    delta: {
+                      role: "assistant",
+                      tool_calls: [
+                        {
+                          function: {
+                            arguments: "{\"city\"",
+                            name: "lookup_weather"
+                          },
+                          id: "call_weather",
+                          index: 0,
+                          type: "function"
+                        },
+                        {
+                          function: {
+                            arguments: "{\"timezone\"",
+                            name: "lookup_time"
+                          },
+                          id: "call_time",
+                          index: 1,
+                          type: "function"
+                        }
+                      ]
+                    },
+                    index: 0
+                  }
+                ],
+                created: 1_788_000_010,
+                id: "chatcmpl-multi-tool-stream",
+                model: "upstream-stream"
+              })}\n\n`,
+              `data: ${JSON.stringify({
+                choices: [
+                  {
+                    delta: {
+                      tool_calls: [
+                        {
+                          function: {
+                            arguments: ":\"Asia/Shanghai\"}"
+                          },
+                          index: 1
+                        },
+                        {
+                          function: {
+                            arguments: ":\"Shanghai\"}"
+                          },
+                          index: 0
+                        }
+                      ]
+                    },
+                    finish_reason: "tool_calls",
+                    index: 0
+                  }
+                ],
+                id: "chatcmpl-multi-tool-stream",
+                model: "upstream-stream",
+                usage: {
+                  completion_tokens: 8,
+                  prompt_tokens: 14,
+                  total_tokens: 22
+                }
+              })}\n\n`,
+              "data: [DONE]\n\n"
+            ]) {
+              streamController.enqueue(encoder.encode(chunk));
+            }
+
+            streamController.close();
+          }
+        });
+
+        return new Response(stream, {
+          headers: {
+            "content-type": "text/event-stream"
+          },
+          status: 200
+        });
+      }
+    });
+
+    try {
+      const target = createRouteProxyTarget("primary", "http://127.0.0.1:3001/v1");
+      const proxyPort = await getFreePort();
+      const status = await controller.start({
+        cooldownMs: 30_000,
+        failureThreshold: 1,
+        listenAddress: "127.0.0.1",
+        listenPort: proxyPort,
+        target,
+        targets: [target],
+        timeoutMs: 5_000
+      });
+      const response = await fetch(`${status.proxyUrl}v1/responses`, {
+        body: JSON.stringify({
+          input: "Need weather and time",
+          model: "client-model",
+          stream: true,
+          tool_choice: "required",
+          tools: [
+            {
+              name: "lookup_weather",
+              parameters: {
+                properties: {
+                  city: {
+                    type: "string"
+                  }
+                },
+                required: ["city"],
+                type: "object"
+              },
+              type: "function"
+            },
+            {
+              name: "lookup_time",
+              parameters: {
+                properties: {
+                  timezone: {
+                    type: "string"
+                  }
+                },
+                required: ["timezone"],
+                type: "object"
+              },
+              type: "function"
+            }
+          ]
+        }),
+        headers: {
+          "content-type": "application/json"
+        },
+        method: "POST"
+      });
+      const responseText = await response.text();
+
+      expect(response.status).toBe(200);
+      expect(responseText.match(/event: response\.output_item\.added/g) ?? []).toHaveLength(2);
+      expect(responseText.match(/event: response\.output_item\.done/g) ?? []).toHaveLength(2);
+      expect(responseText).toContain('"output_index":0');
+      expect(responseText).toContain('"output_index":1');
+      expect(responseText).toContain('"call_id":"call_weather"');
+      expect(responseText).toContain('"name":"lookup_weather"');
+      expect(responseText).toContain('"arguments":"{\\"city\\":\\"Shanghai\\"}"');
+      expect(responseText).toContain('"call_id":"call_time"');
+      expect(responseText).toContain('"name":"lookup_time"');
+      expect(responseText).toContain('"arguments":"{\\"timezone\\":\\"Asia/Shanghai\\"}"');
+      expect(responseText).toContain('"usage":{"input_tokens":14,"output_tokens":8,"total_tokens":22}');
+      expect(responseText).not.toContain("event: response.output_text.delta");
+      expect(responseText).not.toContain("event: response.output_text.done");
+    } finally {
+      await controller.stop();
+    }
+  });
+
+  it("keeps mixed streaming Responses text before upstream tool-call deltas", async () => {
+    const controller = createRouteProxyController({
+      providerFetch: async () => {
+        const encoder = new TextEncoder();
+        const stream = new ReadableStream({
+          start(streamController) {
+            for (const chunk of [
+              `data: ${JSON.stringify({
+                choices: [
+                  {
+                    delta: {
+                      content: "Let me check.",
+                      role: "assistant"
+                    },
+                    index: 0
+                  }
+                ],
+                created: 1_788_000_010,
+                id: "chatcmpl-mixed-tool-stream",
+                model: "upstream-stream"
+              })}\n\n`,
+              `data: ${JSON.stringify({
+                choices: [
+                  {
+                    delta: {
+                      tool_calls: [
+                        {
+                          function: {
+                            arguments: "{\"city\":\"Shanghai\"}",
+                            name: "lookup_weather"
+                          },
+                          id: "call_weather",
+                          index: 0,
+                          type: "function"
+                        }
+                      ]
+                    },
+                    finish_reason: "tool_calls",
+                    index: 0
+                  }
+                ],
+                id: "chatcmpl-mixed-tool-stream",
+                model: "upstream-stream",
+                usage: {
+                  completion_tokens: 6,
+                  prompt_tokens: 10,
+                  total_tokens: 16
+                }
+              })}\n\n`,
+              "data: [DONE]\n\n"
+            ]) {
+              streamController.enqueue(encoder.encode(chunk));
+            }
+
+            streamController.close();
+          }
+        });
+
+        return new Response(stream, {
+          headers: {
+            "content-type": "text/event-stream"
+          },
+          status: 200
+        });
+      }
+    });
+
+    try {
+      const target = createRouteProxyTarget("primary", "http://127.0.0.1:3001/v1");
+      const proxyPort = await getFreePort();
+      const status = await controller.start({
+        cooldownMs: 30_000,
+        failureThreshold: 1,
+        listenAddress: "127.0.0.1",
+        listenPort: proxyPort,
+        target,
+        targets: [target],
+        timeoutMs: 5_000
+      });
+      const response = await fetch(`${status.proxyUrl}v1/responses`, {
+        body: JSON.stringify({
+          input: "Need weather",
+          model: "client-model",
+          stream: true,
+          tool_choice: "required",
+          tools: [
+            {
+              name: "lookup_weather",
+              parameters: {
+                properties: {
+                  city: {
+                    type: "string"
+                  }
+                },
+                required: ["city"],
+                type: "object"
+              },
+              type: "function"
+            }
+          ]
+        }),
+        headers: {
+          "content-type": "application/json"
+        },
+        method: "POST"
+      });
+      const responseText = await response.text();
+      const textDeltaIndex = responseText.indexOf("event: response.output_text.delta");
+      const toolAddedIndex = responseText.indexOf("event: response.output_item.added");
+      const completedIndex = responseText.indexOf("event: response.completed");
+
+      expect(response.status).toBe(200);
+      expect(textDeltaIndex).toBeGreaterThanOrEqual(0);
+      expect(toolAddedIndex).toBeGreaterThan(textDeltaIndex);
+      expect(completedIndex).toBeGreaterThan(toolAddedIndex);
+      expect(responseText).toContain('"output_index":0');
+      expect(responseText).toContain('"output_index":1');
+      expect(responseText).toContain('"text":"Let me check."');
+      expect(responseText).toContain('"output_text":"Let me check."');
+      expect(responseText).toContain('"call_id":"call_weather"');
+      expect(responseText).toContain('"name":"lookup_weather"');
+      expect(responseText).toContain('"arguments":"{\\"city\\":\\"Shanghai\\"}"');
+      expect(responseText).toContain('"usage":{"input_tokens":10,"output_tokens":6,"total_tokens":16}');
+    } finally {
+      await controller.stop();
+    }
+  });
+
+  it("keeps mixed streaming Responses tool-call output before later text deltas", async () => {
+    const controller = createRouteProxyController({
+      providerFetch: async () => {
+        const encoder = new TextEncoder();
+        const stream = new ReadableStream({
+          start(streamController) {
+            for (const chunk of [
+              `data: ${JSON.stringify({
+                choices: [
+                  {
+                    delta: {
+                      role: "assistant",
+                      tool_calls: [
+                        {
+                          function: {
+                            arguments: "{\"city\":\"Shanghai\"}",
+                            name: "lookup_weather"
+                          },
+                          id: "call_weather",
+                          index: 0,
+                          type: "function"
+                        }
+                      ]
+                    },
+                    index: 0
+                  }
+                ],
+                created: 1_788_000_010,
+                id: "chatcmpl-tool-before-text-stream",
+                model: "upstream-stream"
+              })}\n\n`,
+              `data: ${JSON.stringify({
+                choices: [
+                  {
+                    delta: {
+                      content: "Weather lookup queued."
+                    },
+                    finish_reason: "stop",
+                    index: 0
+                  }
+                ],
+                id: "chatcmpl-tool-before-text-stream",
+                model: "upstream-stream",
+                usage: {
+                  completion_tokens: 7,
+                  prompt_tokens: 10,
+                  total_tokens: 17
+                }
+              })}\n\n`,
+              "data: [DONE]\n\n"
+            ]) {
+              streamController.enqueue(encoder.encode(chunk));
+            }
+
+            streamController.close();
+          }
+        });
+
+        return new Response(stream, {
+          headers: {
+            "content-type": "text/event-stream"
+          },
+          status: 200
+        });
+      }
+    });
+
+    try {
+      const target = createRouteProxyTarget("primary", "http://127.0.0.1:3001/v1");
+      const proxyPort = await getFreePort();
+      const status = await controller.start({
+        cooldownMs: 30_000,
+        failureThreshold: 1,
+        listenAddress: "127.0.0.1",
+        listenPort: proxyPort,
+        target,
+        targets: [target],
+        timeoutMs: 5_000
+      });
+      const response = await fetch(`${status.proxyUrl}v1/responses`, {
+        body: JSON.stringify({
+          input: "Need weather",
+          model: "client-model",
+          stream: true,
+          tool_choice: "required",
+          tools: [
+            {
+              name: "lookup_weather",
+              parameters: {
+                properties: {
+                  city: {
+                    type: "string"
+                  }
+                },
+                required: ["city"],
+                type: "object"
+              },
+              type: "function"
+            }
+          ]
+        }),
+        headers: {
+          "content-type": "application/json"
+        },
+        method: "POST"
+      });
+      const responseText = await response.text();
+      const toolAddedIndex = responseText.indexOf("event: response.output_item.added");
+      const toolDoneIndex = responseText.indexOf("event: response.output_item.done");
+      const textDeltaIndex = responseText.indexOf("event: response.output_text.delta");
+      const completedDataLine = responseText
+        .split("\n")
+        .find((line) => line.startsWith("data: ") && line.includes('"type":"response.completed"'));
+      const completedEvent = JSON.parse((completedDataLine ?? "data: {}").slice("data: ".length));
+
+      expect(response.status).toBe(200);
+      expect(toolAddedIndex).toBeGreaterThanOrEqual(0);
+      expect(toolDoneIndex).toBeGreaterThan(toolAddedIndex);
+      expect(textDeltaIndex).toBeGreaterThan(toolDoneIndex);
+      expect(responseText).toContain('"output_index":0');
+      expect(responseText).toContain('"output_index":1');
+      expect(responseText).toContain('"call_id":"call_weather"');
+      expect(responseText).toContain('"arguments":"{\\"city\\":\\"Shanghai\\"}"');
+      expect(responseText).toContain('"text":"Weather lookup queued."');
+      expect(responseText).toContain('"usage":{"input_tokens":10,"output_tokens":7,"total_tokens":17}');
+      expect(completedEvent.response.output).toMatchObject([
+        {
+          arguments: "{\"city\":\"Shanghai\"}",
+          call_id: "call_weather",
+          name: "lookup_weather",
+          type: "function_call"
+        },
+        {
+          content: [
+            {
+              text: "Weather lookup queued.",
+              type: "output_text"
+            }
+          ],
+          type: "message"
         }
       ]);
     } finally {
@@ -2948,6 +3868,329 @@ describe("routeProxyServer", () => {
     }
   });
 
+  it("converts local Anthropic tools and upstream tool calls", async () => {
+    const fetchCalls: Array<{
+      body: Record<string, unknown>;
+      input: string;
+    }> = [];
+    const controller = createRouteProxyController({
+      providerFetch: async (input: string, init?: RequestInit) => {
+        const bodyText = Buffer.isBuffer(init?.body) ? init.body.toString("utf8") : String(init?.body ?? "");
+        fetchCalls.push({
+          body: JSON.parse(bodyText),
+          input
+        });
+
+        return new Response(
+          JSON.stringify({
+            choices: [
+              {
+                finish_reason: "tool_calls",
+                message: {
+                  content: "",
+                  role: "assistant",
+                  tool_calls: [
+                    {
+                      function: {
+                        arguments: "{\"city\":\"Shanghai\"}",
+                        name: "lookup_weather"
+                      },
+                      id: "call_weather",
+                      type: "function"
+                    }
+                  ]
+                }
+              }
+            ],
+            id: "chatcmpl-anthropic-tool",
+            model: "upstream-model",
+            usage: {
+              completion_tokens: 7,
+              prompt_tokens: 12,
+              total_tokens: 19
+            }
+          }),
+          {
+            headers: {
+              "content-type": "application/json"
+            },
+            status: 200
+          }
+        );
+      }
+    });
+
+    try {
+      const target = createRouteProxyTarget("primary", "http://127.0.0.1:3001/v1");
+      const proxyPort = await getFreePort();
+      const status = await controller.start({
+        cooldownMs: 30_000,
+        failureThreshold: 1,
+        listenAddress: "127.0.0.1",
+        listenPort: proxyPort,
+        target,
+        targets: [target],
+        timeoutMs: 5_000
+      });
+      const inputSchema = {
+        additionalProperties: false,
+        properties: {
+          city: {
+            type: "string"
+          }
+        },
+        required: ["city"],
+        type: "object"
+      };
+      const response = await fetch(`${status.proxyUrl}v1/messages`, {
+        body: JSON.stringify({
+          max_tokens: 32,
+          messages: [
+            {
+              content: "Need weather",
+              role: "user"
+            }
+          ],
+          model: "claude-client",
+          tool_choice: {
+            disable_parallel_tool_use: true,
+            name: "lookup_weather",
+            type: "tool"
+          },
+          tools: [
+            {
+              description: "Lookup weather.",
+              input_schema: inputSchema,
+              name: "lookup_weather"
+            },
+            {
+              name: "web_search",
+              type: "web_search_20250305"
+            }
+          ]
+        }),
+        headers: {
+          "content-type": "application/json"
+        },
+        method: "POST"
+      });
+
+      expect(response.status).toBe(200);
+      const responseJson = await response.json();
+      expect(responseJson).toMatchObject({
+        id: "chatcmpl-anthropic-tool",
+        model: "upstream-model",
+        role: "assistant",
+        stop_reason: "tool_use",
+        stop_sequence: null,
+        type: "message",
+        usage: {
+          input_tokens: 12,
+          output_tokens: 7
+        }
+      });
+      expect(responseJson.content).toEqual([
+        {
+          id: "call_weather",
+          input: {
+            city: "Shanghai"
+          },
+          name: "lookup_weather",
+          type: "tool_use"
+        }
+      ]);
+      expect(fetchCalls).toEqual([
+        {
+          body: {
+            max_tokens: 32,
+            messages: [
+              {
+                content: "Need weather",
+                role: "user"
+              }
+            ],
+            model: "claude-client",
+            parallel_tool_calls: false,
+            stream: false,
+            tool_choice: {
+              function: {
+                name: "lookup_weather"
+              },
+              type: "function"
+            },
+            tools: [
+              {
+                function: {
+                  description: "Lookup weather.",
+                  name: "lookup_weather",
+                  parameters: inputSchema
+                },
+                type: "function"
+              }
+            ]
+          },
+          input: "http://127.0.0.1:3001/v1/chat/completions"
+        }
+      ]);
+    } finally {
+      await controller.stop();
+    }
+  });
+
+  it("converts local Anthropic tool-use and tool-result history to upstream chat completions messages", async () => {
+    const fetchCalls: Array<{
+      body: Record<string, unknown>;
+      input: string;
+    }> = [];
+    const controller = createRouteProxyController({
+      providerFetch: async (input: string, init?: RequestInit) => {
+        const bodyText = Buffer.isBuffer(init?.body) ? init.body.toString("utf8") : String(init?.body ?? "");
+        fetchCalls.push({
+          body: JSON.parse(bodyText),
+          input
+        });
+
+        return new Response(
+          JSON.stringify({
+            choices: [
+              {
+                finish_reason: "stop",
+                message: {
+                  content: "final weather reply",
+                  role: "assistant"
+                }
+              }
+            ],
+            id: "chatcmpl-anthropic-tool-history",
+            model: "upstream-model"
+          }),
+          {
+            headers: {
+              "content-type": "application/json"
+            },
+            status: 200
+          }
+        );
+      }
+    });
+
+    try {
+      const target = createRouteProxyTarget("primary", "http://127.0.0.1:3001/v1");
+      const proxyPort = await getFreePort();
+      const status = await controller.start({
+        cooldownMs: 30_000,
+        failureThreshold: 1,
+        listenAddress: "127.0.0.1",
+        listenPort: proxyPort,
+        target,
+        targets: [target],
+        timeoutMs: 5_000
+      });
+      const response = await fetch(`${status.proxyUrl}v1/messages`, {
+        body: JSON.stringify({
+          max_tokens: 48,
+          messages: [
+            {
+              content: "Need weather",
+              role: "user"
+            },
+            {
+              content: [
+                {
+                  id: "toolu_weather",
+                  input: {
+                    city: "Shanghai"
+                  },
+                  name: "lookup_weather",
+                  type: "tool_use"
+                }
+              ],
+              role: "assistant"
+            },
+            {
+              content: [
+                {
+                  content: "Sunny, 27C",
+                  tool_use_id: "toolu_weather",
+                  type: "tool_result"
+                },
+                {
+                  text: "Use that result.",
+                  type: "text"
+                }
+              ],
+              role: "user"
+            }
+          ],
+          model: "claude-client"
+        }),
+        headers: {
+          "content-type": "application/json"
+        },
+        method: "POST"
+      });
+
+      expect(response.status).toBe(200);
+      await expect(response.json()).resolves.toMatchObject({
+        content: [
+          {
+            text: "final weather reply",
+            type: "text"
+          }
+        ],
+        id: "chatcmpl-anthropic-tool-history",
+        model: "upstream-model",
+        stop_reason: "end_turn"
+      });
+      expect(fetchCalls).toEqual([
+        {
+          body: {
+            max_tokens: 48,
+            messages: [
+              {
+                content: "Need weather",
+                role: "user"
+              },
+              {
+                content: "",
+                role: "assistant",
+                tool_calls: [
+                  {
+                    function: {
+                      arguments: "{\"city\":\"Shanghai\"}",
+                      name: "lookup_weather"
+                    },
+                    id: "toolu_weather",
+                    type: "function"
+                  }
+                ]
+              },
+              {
+                content: "Sunny, 27C",
+                role: "tool",
+                tool_call_id: "toolu_weather"
+              },
+              {
+                content: [
+                  {
+                    text: "Use that result.",
+                    type: "text"
+                  }
+                ],
+                role: "user"
+              }
+            ],
+            model: "claude-client",
+            stream: false
+          },
+          input: "http://127.0.0.1:3001/v1/chat/completions"
+        }
+      ]);
+    } finally {
+      await controller.stop();
+    }
+  });
+
   it("passes upstream HTTP errors through for converted Anthropic Messages requests", async () => {
     const fetchCalls: Array<{
       body: Record<string, unknown>;
@@ -3259,6 +4502,627 @@ describe("routeProxyServer", () => {
           targetConfigId: "primary"
         }
       ]);
+    } finally {
+      await controller.stop();
+    }
+  });
+
+  it("converts streaming local Anthropic tool-use deltas from upstream chat completions SSE", async () => {
+    const fetchCalls: Array<{
+      body: Record<string, unknown>;
+      input: string;
+    }> = [];
+    const controller = createRouteProxyController({
+      providerFetch: async (input: string, init?: RequestInit) => {
+        const bodyText = Buffer.isBuffer(init?.body) ? init.body.toString("utf8") : String(init?.body ?? "");
+        const encoder = new TextEncoder();
+        const stream = new ReadableStream({
+          start(streamController) {
+            for (const chunk of [
+              `data: ${JSON.stringify({
+                choices: [
+                  {
+                    delta: {
+                      role: "assistant",
+                      tool_calls: [
+                        {
+                          function: {
+                            arguments: "{\"city\"",
+                            name: "lookup_weather"
+                          },
+                          id: "call_weather",
+                          index: 0,
+                          type: "function"
+                        }
+                      ]
+                    },
+                    index: 0
+                  }
+                ],
+                id: "chatcmpl-anthropic-tool-stream",
+                model: "upstream-stream"
+              })}\n\n`,
+              `data: ${JSON.stringify({
+                choices: [
+                  {
+                    delta: {
+                      tool_calls: [
+                        {
+                          function: {
+                            arguments: ":\"Shanghai\"}"
+                          },
+                          index: 0
+                        }
+                      ]
+                    },
+                    finish_reason: "tool_calls",
+                    index: 0
+                  }
+                ],
+                id: "chatcmpl-anthropic-tool-stream",
+                model: "upstream-stream",
+                usage: {
+                  completion_tokens: 4,
+                  prompt_tokens: 9,
+                  total_tokens: 13
+                }
+              })}\n\n`,
+              "data: [DONE]\n\n"
+            ]) {
+              streamController.enqueue(encoder.encode(chunk));
+            }
+
+            streamController.close();
+          }
+        });
+
+        fetchCalls.push({
+          body: JSON.parse(bodyText),
+          input
+        });
+
+        return new Response(stream, {
+          headers: {
+            "content-type": "text/event-stream"
+          },
+          status: 200
+        });
+      }
+    });
+
+    try {
+      const target = createRouteProxyTarget("primary", "http://127.0.0.1:3001/v1");
+      const proxyPort = await getFreePort();
+      const status = await controller.start({
+        cooldownMs: 30_000,
+        failureThreshold: 1,
+        listenAddress: "127.0.0.1",
+        listenPort: proxyPort,
+        target,
+        targets: [target],
+        timeoutMs: 5_000
+      });
+      const inputSchema = {
+        properties: {
+          city: {
+            type: "string"
+          }
+        },
+        required: ["city"],
+        type: "object"
+      };
+      const response = await fetch(`${status.proxyUrl}v1/messages`, {
+        body: JSON.stringify({
+          max_tokens: 32,
+          messages: [
+            {
+              content: "Need weather",
+              role: "user"
+            }
+          ],
+          model: "claude-client",
+          stream: true,
+          tool_choice: {
+            type: "any"
+          },
+          tools: [
+            {
+              input_schema: inputSchema,
+              name: "lookup_weather"
+            }
+          ]
+        }),
+        headers: {
+          "content-type": "application/json"
+        },
+        method: "POST"
+      });
+      const responseText = await response.text();
+
+      expect(response.status).toBe(200);
+      expect(responseText).toContain("event: message_start");
+      expect(responseText).toContain("event: content_block_start");
+      expect(responseText).toContain('"type":"tool_use"');
+      expect(responseText).toContain('"id":"call_weather"');
+      expect(responseText).toContain('"name":"lookup_weather"');
+      expect(responseText).toContain("event: content_block_delta");
+      expect(responseText).toContain('"type":"input_json_delta"');
+      expect(responseText).toContain('"partial_json":"{\\"city\\""');
+      expect(responseText).toContain('"partial_json":":\\"Shanghai\\"}"');
+      expect(responseText).toContain("event: content_block_stop");
+      expect(responseText).toContain("event: message_delta");
+      expect(responseText).toContain('"stop_reason":"tool_use"');
+      expect(responseText).toContain('"output_tokens":4');
+      expect(responseText).toContain("event: message_stop");
+      expect(responseText).not.toContain('"type":"text_delta"');
+      expect(fetchCalls).toEqual([
+        {
+          body: {
+            max_tokens: 32,
+            messages: [
+              {
+                content: "Need weather",
+                role: "user"
+              }
+            ],
+            model: "claude-client",
+            stream: true,
+            tool_choice: "required",
+            tools: [
+              {
+                function: {
+                  name: "lookup_weather",
+                  parameters: inputSchema
+                },
+                type: "function"
+              }
+            ]
+          },
+          input: "http://127.0.0.1:3001/v1/chat/completions"
+        }
+      ]);
+    } finally {
+      await controller.stop();
+    }
+  });
+
+  it("keeps multiple streaming Anthropic tool-use deltas separated by upstream index", async () => {
+    const controller = createRouteProxyController({
+      providerFetch: async () => {
+        const encoder = new TextEncoder();
+        const stream = new ReadableStream({
+          start(streamController) {
+            for (const chunk of [
+              `data: ${JSON.stringify({
+                choices: [
+                  {
+                    delta: {
+                      role: "assistant",
+                      tool_calls: [
+                        {
+                          function: {
+                            arguments: "{\"city\"",
+                            name: "lookup_weather"
+                          },
+                          id: "call_weather",
+                          index: 0,
+                          type: "function"
+                        },
+                        {
+                          function: {
+                            arguments: "{\"timezone\"",
+                            name: "lookup_time"
+                          },
+                          id: "call_time",
+                          index: 1,
+                          type: "function"
+                        }
+                      ]
+                    },
+                    index: 0
+                  }
+                ],
+                id: "chatcmpl-anthropic-multi-tool-stream",
+                model: "upstream-stream"
+              })}\n\n`,
+              `data: ${JSON.stringify({
+                choices: [
+                  {
+                    delta: {
+                      tool_calls: [
+                        {
+                          function: {
+                            arguments: ":\"Asia/Shanghai\"}"
+                          },
+                          index: 1
+                        },
+                        {
+                          function: {
+                            arguments: ":\"Shanghai\"}"
+                          },
+                          index: 0
+                        }
+                      ]
+                    },
+                    finish_reason: "tool_calls",
+                    index: 0
+                  }
+                ],
+                id: "chatcmpl-anthropic-multi-tool-stream",
+                model: "upstream-stream",
+                usage: {
+                  completion_tokens: 8,
+                  prompt_tokens: 14,
+                  total_tokens: 22
+                }
+              })}\n\n`,
+              "data: [DONE]\n\n"
+            ]) {
+              streamController.enqueue(encoder.encode(chunk));
+            }
+
+            streamController.close();
+          }
+        });
+
+        return new Response(stream, {
+          headers: {
+            "content-type": "text/event-stream"
+          },
+          status: 200
+        });
+      }
+    });
+
+    try {
+      const target = createRouteProxyTarget("primary", "http://127.0.0.1:3001/v1");
+      const proxyPort = await getFreePort();
+      const status = await controller.start({
+        cooldownMs: 30_000,
+        failureThreshold: 1,
+        listenAddress: "127.0.0.1",
+        listenPort: proxyPort,
+        target,
+        targets: [target],
+        timeoutMs: 5_000
+      });
+      const response = await fetch(`${status.proxyUrl}v1/messages`, {
+        body: JSON.stringify({
+          max_tokens: 48,
+          messages: [
+            {
+              content: "Need weather and time",
+              role: "user"
+            }
+          ],
+          model: "claude-client",
+          stream: true,
+          tool_choice: {
+            type: "any"
+          },
+          tools: [
+            {
+              input_schema: {
+                properties: {
+                  city: {
+                    type: "string"
+                  }
+                },
+                required: ["city"],
+                type: "object"
+              },
+              name: "lookup_weather"
+            },
+            {
+              input_schema: {
+                properties: {
+                  timezone: {
+                    type: "string"
+                  }
+                },
+                required: ["timezone"],
+                type: "object"
+              },
+              name: "lookup_time"
+            }
+          ]
+        }),
+        headers: {
+          "content-type": "application/json"
+        },
+        method: "POST"
+      });
+      const responseText = await response.text();
+
+      expect(response.status).toBe(200);
+      expect(responseText.match(/event: content_block_start/g) ?? []).toHaveLength(2);
+      expect(responseText.match(/event: content_block_stop/g) ?? []).toHaveLength(2);
+      expect(responseText).toContain('"index":0,"type":"content_block_start"');
+      expect(responseText).toContain('"index":1,"type":"content_block_start"');
+      expect(responseText).toContain('"id":"call_weather"');
+      expect(responseText).toContain('"name":"lookup_weather"');
+      expect(responseText).toContain('"partial_json":"{\\"city\\""');
+      expect(responseText).toContain('"partial_json":":\\"Shanghai\\"}"');
+      expect(responseText).toContain('"id":"call_time"');
+      expect(responseText).toContain('"name":"lookup_time"');
+      expect(responseText).toContain('"partial_json":"{\\"timezone\\""');
+      expect(responseText).toContain('"partial_json":":\\"Asia/Shanghai\\"}"');
+      expect(responseText).toContain('"stop_reason":"tool_use"');
+      expect(responseText).toContain('"input_tokens":0');
+      expect(responseText).toContain('"output_tokens":8');
+      expect(responseText).not.toContain('"type":"text_delta"');
+    } finally {
+      await controller.stop();
+    }
+  });
+
+  it("keeps mixed streaming Anthropic text before upstream tool-use deltas", async () => {
+    const controller = createRouteProxyController({
+      providerFetch: async () => {
+        const encoder = new TextEncoder();
+        const stream = new ReadableStream({
+          start(streamController) {
+            for (const chunk of [
+              `data: ${JSON.stringify({
+                choices: [
+                  {
+                    delta: {
+                      content: "Let me check.",
+                      role: "assistant"
+                    },
+                    index: 0
+                  }
+                ],
+                id: "chatcmpl-anthropic-mixed-tool-stream",
+                model: "upstream-stream"
+              })}\n\n`,
+              `data: ${JSON.stringify({
+                choices: [
+                  {
+                    delta: {
+                      tool_calls: [
+                        {
+                          function: {
+                            arguments: "{\"city\":\"Shanghai\"}",
+                            name: "lookup_weather"
+                          },
+                          id: "call_weather",
+                          index: 0,
+                          type: "function"
+                        }
+                      ]
+                    },
+                    finish_reason: "tool_calls",
+                    index: 0
+                  }
+                ],
+                id: "chatcmpl-anthropic-mixed-tool-stream",
+                model: "upstream-stream",
+                usage: {
+                  completion_tokens: 6,
+                  prompt_tokens: 10,
+                  total_tokens: 16
+                }
+              })}\n\n`,
+              "data: [DONE]\n\n"
+            ]) {
+              streamController.enqueue(encoder.encode(chunk));
+            }
+
+            streamController.close();
+          }
+        });
+
+        return new Response(stream, {
+          headers: {
+            "content-type": "text/event-stream"
+          },
+          status: 200
+        });
+      }
+    });
+
+    try {
+      const target = createRouteProxyTarget("primary", "http://127.0.0.1:3001/v1");
+      const proxyPort = await getFreePort();
+      const status = await controller.start({
+        cooldownMs: 30_000,
+        failureThreshold: 1,
+        listenAddress: "127.0.0.1",
+        listenPort: proxyPort,
+        target,
+        targets: [target],
+        timeoutMs: 5_000
+      });
+      const response = await fetch(`${status.proxyUrl}v1/messages`, {
+        body: JSON.stringify({
+          max_tokens: 32,
+          messages: [
+            {
+              content: "Need weather",
+              role: "user"
+            }
+          ],
+          model: "claude-client",
+          stream: true,
+          tool_choice: {
+            type: "any"
+          },
+          tools: [
+            {
+              input_schema: {
+                properties: {
+                  city: {
+                    type: "string"
+                  }
+                },
+                required: ["city"],
+                type: "object"
+              },
+              name: "lookup_weather"
+            }
+          ]
+        }),
+        headers: {
+          "content-type": "application/json"
+        },
+        method: "POST"
+      });
+      const responseText = await response.text();
+      const textDeltaIndex = responseText.indexOf('"type":"text_delta"');
+      const textStopIndex = responseText.indexOf('{"index":0,"type":"content_block_stop"}');
+      const toolStartIndex = responseText.indexOf('"type":"tool_use"');
+      const messageStopIndex = responseText.indexOf("event: message_stop");
+
+      expect(response.status).toBe(200);
+      expect(textDeltaIndex).toBeGreaterThanOrEqual(0);
+      expect(textStopIndex).toBeGreaterThan(textDeltaIndex);
+      expect(toolStartIndex).toBeGreaterThan(textStopIndex);
+      expect(messageStopIndex).toBeGreaterThan(toolStartIndex);
+      expect(responseText).toContain('"text":"Let me check."');
+      expect(responseText).toContain('"id":"call_weather"');
+      expect(responseText).toContain('"name":"lookup_weather"');
+      expect(responseText).toContain('"partial_json":"{\\"city\\":\\"Shanghai\\"}"');
+      expect(responseText).toContain('"stop_reason":"tool_use"');
+      expect(responseText).toContain('"input_tokens":0');
+      expect(responseText).toContain('"output_tokens":6');
+    } finally {
+      await controller.stop();
+    }
+  });
+
+  it("keeps mixed streaming Anthropic tool-use output before later text deltas", async () => {
+    const controller = createRouteProxyController({
+      providerFetch: async () => {
+        const encoder = new TextEncoder();
+        const stream = new ReadableStream({
+          start(streamController) {
+            for (const chunk of [
+              `data: ${JSON.stringify({
+                choices: [
+                  {
+                    delta: {
+                      role: "assistant",
+                      tool_calls: [
+                        {
+                          function: {
+                            arguments: "{\"city\":\"Shanghai\"}",
+                            name: "lookup_weather"
+                          },
+                          id: "call_weather",
+                          index: 0,
+                          type: "function"
+                        }
+                      ]
+                    },
+                    index: 0
+                  }
+                ],
+                id: "chatcmpl-anthropic-tool-before-text-stream",
+                model: "upstream-stream"
+              })}\n\n`,
+              `data: ${JSON.stringify({
+                choices: [
+                  {
+                    delta: {
+                      content: "Weather lookup queued."
+                    },
+                    finish_reason: "stop",
+                    index: 0
+                  }
+                ],
+                id: "chatcmpl-anthropic-tool-before-text-stream",
+                model: "upstream-stream",
+                usage: {
+                  completion_tokens: 7,
+                  prompt_tokens: 10,
+                  total_tokens: 17
+                }
+              })}\n\n`,
+              "data: [DONE]\n\n"
+            ]) {
+              streamController.enqueue(encoder.encode(chunk));
+            }
+
+            streamController.close();
+          }
+        });
+
+        return new Response(stream, {
+          headers: {
+            "content-type": "text/event-stream"
+          },
+          status: 200
+        });
+      }
+    });
+
+    try {
+      const target = createRouteProxyTarget("primary", "http://127.0.0.1:3001/v1");
+      const proxyPort = await getFreePort();
+      const status = await controller.start({
+        cooldownMs: 30_000,
+        failureThreshold: 1,
+        listenAddress: "127.0.0.1",
+        listenPort: proxyPort,
+        target,
+        targets: [target],
+        timeoutMs: 5_000
+      });
+      const response = await fetch(`${status.proxyUrl}v1/messages`, {
+        body: JSON.stringify({
+          max_tokens: 32,
+          messages: [
+            {
+              content: "Need weather",
+              role: "user"
+            }
+          ],
+          model: "claude-client",
+          stream: true,
+          tool_choice: {
+            type: "any"
+          },
+          tools: [
+            {
+              input_schema: {
+                properties: {
+                  city: {
+                    type: "string"
+                  }
+                },
+                required: ["city"],
+                type: "object"
+              },
+              name: "lookup_weather"
+            }
+          ]
+        }),
+        headers: {
+          "content-type": "application/json"
+        },
+        method: "POST"
+      });
+      const responseText = await response.text();
+      const toolStartIndex = responseText.indexOf('"type":"tool_use"');
+      const toolStopIndex = responseText.indexOf('{"index":0,"type":"content_block_stop"}');
+      const textStartIndex = responseText.indexOf('"content_block":{"text":"","type":"text"}');
+      const textDeltaIndex = responseText.indexOf('"type":"text_delta"');
+      const textStopIndex = responseText.indexOf('{"index":1,"type":"content_block_stop"}');
+
+      expect(response.status).toBe(200);
+      expect(toolStartIndex).toBeGreaterThanOrEqual(0);
+      expect(toolStopIndex).toBeGreaterThan(toolStartIndex);
+      expect(textStartIndex).toBeGreaterThan(toolStopIndex);
+      expect(textDeltaIndex).toBeGreaterThan(textStartIndex);
+      expect(textStopIndex).toBeGreaterThan(textDeltaIndex);
+      expect(responseText).toContain('"id":"call_weather"');
+      expect(responseText).toContain('"name":"lookup_weather"');
+      expect(responseText).toContain('"partial_json":"{\\"city\\":\\"Shanghai\\"}"');
+      expect(responseText).toContain('"text":"Weather lookup queued."');
+      expect(responseText).toContain('"stop_reason":"end_turn"');
+      expect(responseText).toContain('"input_tokens":0');
+      expect(responseText).toContain('"output_tokens":7');
     } finally {
       await controller.stop();
     }
