@@ -1,16 +1,16 @@
 # Development Progress
 
-Last updated: 2026-07-08
+Last updated: 2026-07-09
 
 ## Current Milestone
 
-M4 connection testing hardening is partially implemented. Anthropic provider-specific connection test requests are implemented, OpenAI-compatible configs now separate provider type from endpoint mode, legacy OpenAI/Gemini/Antigravity/Grok provider ids now migrate to one `openai-compatible` provider id, sidebar provider filtering groups OpenAI-compatible providers, Anthropic and OpenAI-compatible real-key success have been verified, the multi-window localStorage consistency fix is implemented and fresh-launch verified, desktop saved-key reveal/copy/clipboard clearing has been verified in a fresh Electron window, available third-party endpoint modes have been verified with real saved keys, live fetched provider model catalogs are now persisted with visible refresh timestamps, the desktop app now has a custom taskbar/window icon and favicon matching the in-app `KeyRound` brand mark instead of the default framework icon, the left sidebar stays fixed while the right workbench scrolls, the supported-model panel is collapsed by default, detail-panel snippet copy actions are wired, model chat is now a standalone sidebar module backed by main-process IPC with default streaming responses, manual supported-path thinking mode, an OpenAI-compatible endpoint-mode selector, an internal message scrollbar for long conversations, no visible new-config toolbar action, and real saved-key streaming chat verified through 42API, agnes, and nvidia Chat Completions paths, and a first local route-proxy module now forwards local HTTP API requests to saved API configs with a real saved-key streaming request verified through the development origin, a visible streaming-client usage example, local named proxy profiles with secret-free import/export, sanitized in-memory request logging, hardened request-header and auth-query forwarding before provider fetch, a proposed durable diagnostics model and retention policy, pure durable diagnostics guard helpers with tests, an opt-in durable diagnostics storage adapter with local temp-dir tests, focused retention-trigger tests for durable diagnostics storage, Electron IPC/preload/renderer transport plus minimal UI controls for opt-in durable diagnostics management, opt-in sanitized runtime append for durable route-proxy diagnostics, Electron CDP UI smoke for durable diagnostics controls, a clear/read race fix for diagnostics files removed while renderer reads are in flight, a minimal cc-switch-style failover/circuit-breaker route proxy slice with ordered fallback targets, network/5xx retries, HTTP 4xx non-retry smoke coverage, HTTP 5xx failover smoke coverage, target health display, opt-in durable target-health transition entries with dedicated diagnostics-list rendering, persisted per-profile failover tuning with isolated CDP UI smoke verification, deterministic real saved-key failover verification through agnes and nvidia backup targets, a fixed route-proxy layout that lets the workbench scroll the full module instead of clipping the usage area, an internally scrollable API config list so large config sets are reachable without being clipped, explicit weighted round-robin route-proxy routing with per-target weights, first-pass route-proxy local client adapter snippets, first-pass non-streaming plus streaming Responses-to-Chat-Completions route-proxy protocol conversion with non-streaming function-tool, tool-call, function-call-output history mapping, and streaming tool-call delta mapping, and first-pass non-streaming plus streaming Anthropic Messages-to-Chat-Completions route-proxy protocol conversion with non-streaming client-tool, tool-use, tool-result history mapping, and streaming tool-use delta mapping.
+M4 connection testing hardening is partially implemented. Anthropic provider-specific connection test requests are implemented, OpenAI-compatible configs now separate provider type from endpoint mode, legacy OpenAI/Gemini/Antigravity/Grok provider ids now migrate to one `openai-compatible` provider id, sidebar provider filtering groups OpenAI-compatible providers, Anthropic and OpenAI-compatible real-key success have been verified, the multi-window localStorage consistency fix is implemented and fresh-launch verified, desktop saved-key reveal/copy/clipboard clearing has been verified in a fresh Electron window, available third-party endpoint modes have been verified with real saved keys, live fetched provider model catalogs are now persisted with visible refresh timestamps, the desktop app now has a custom taskbar/window icon and favicon matching the in-app `KeyRound` brand mark instead of the default framework icon, the left sidebar stays fixed while the right workbench scrolls, the supported-model panel is collapsed by default, detail-panel snippet copy actions are wired, model chat is now a standalone sidebar module backed by main-process IPC with default streaming responses, manual supported-path thinking mode, an OpenAI-compatible endpoint-mode selector, an internal message scrollbar for long conversations, no visible new-config toolbar action, and real saved-key streaming chat verified through 42API, agnes, and nvidia Chat Completions paths, and a first local route-proxy module now forwards local HTTP API requests to saved API configs with a real saved-key streaming request verified through the development origin, a visible streaming-client usage example, local named proxy profiles with secret-free import/export, sanitized in-memory request logging, hardened request-header and auth-query forwarding before provider fetch, a proposed durable diagnostics model and retention policy, pure durable diagnostics guard helpers with tests, an opt-in durable diagnostics storage adapter with local temp-dir tests, focused retention-trigger tests for durable diagnostics storage, Electron IPC/preload/renderer transport plus minimal UI controls for opt-in durable diagnostics management, opt-in sanitized runtime append for durable route-proxy diagnostics, Electron CDP UI smoke for durable diagnostics controls, a clear/read race fix for diagnostics files removed while renderer reads are in flight, a minimal cc-switch-style failover/circuit-breaker route proxy slice with ordered fallback targets, network/5xx retries, HTTP 4xx non-retry smoke coverage, HTTP 5xx failover smoke coverage, target health display, opt-in durable target-health transition entries with dedicated diagnostics-list rendering, persisted per-profile failover tuning with isolated CDP UI smoke verification, deterministic real saved-key failover verification through agnes and nvidia backup targets, a fixed route-proxy layout that lets the workbench scroll the full module instead of clipping the usage area, an internally scrollable API config list so large config sets are reachable without being clipped, explicit weighted round-robin route-proxy routing with per-target weights, first-pass route-proxy local client adapter snippets, first-pass non-streaming plus streaming Responses-to-Chat-Completions route-proxy protocol conversion with non-streaming function-tool, tool-call, legacy function-call, structured text-format mapping, refusal and choice-text preservation, input-image URL/detail mapping, developer-role input preservation, seed passthrough, function-call-output history mapping, and streaming tool-call plus legacy function-call delta mapping, and first-pass non-streaming plus streaming Anthropic Messages-to-Chat-Completions route-proxy protocol conversion with non-streaming client-tool, tool-use, legacy function-call, refusal and choice-text preservation, tool-result history mapping, and streaming tool-use plus legacy function-call delta mapping.
 
 The latest sessions verified standalone Anthropic Messages and forced OpenAI Responses chat with real saved keys while thinking remained manually disabled, added a local mock SSE endpoint to prove assistant text updates incrementally during streaming, verified real saved-key text and image attachment chat requests through agnes, diagnosed official OpenAI model fetching through the local proxy path, fixed official OpenAI Responses connection-test payloads to respect the current `max_output_tokens` minimum, refreshed generated Claude Code/Codex snippets against current public docs, confirmed a low-frequency official OpenAI Responses connection-test success, fixed new-config provider switching so OpenAI-compatible configs no longer retain the Anthropic default Base URL, fixed the one-item config list stretch layout bug, extracted the route-proxy forwarding runtime into a reusable controller, added pure local HTTP 4xx non-retry smoke coverage, added pure local HTTP 5xx failover smoke coverage, defined the route-proxy durable diagnostics sanitized model and retention policy without enabling app disk writes, added pure route-proxy diagnostics guard helpers with tests, added an opt-in route-proxy diagnostics storage adapter, wired that adapter to Electron IPC, preload, renderer transport, and minimal UI controls, wired sanitized route-proxy runtime append behind the opt-in store, added store-level retention-trigger coverage for startup-open, daily rollover, and every 100 appends, fixed diagnostics reads to tolerate files deleted during clear, serialized diagnostics store file mutations so clear cannot race with an in-flight append, added runtime flush coverage proving pending diagnostics writes are awaited before clear can continue, verified the durable diagnostics controls in a temporary Electron CDP UI smoke, hardened route-proxy request-header forwarding with pure local coverage, stripped known auth query parameters from upstream route-proxy URLs, confirmed the Electron `net.fetch` local-success path with CDP, wired route-proxy profiles into secret-free template import/export, added focused import-helper coverage for route-proxy profile target remapping, extracted route-proxy target health snapshot helpers with deterministic local coverage, fixed route-proxy cooldown failback so recovered higher-priority targets are selected again after cooldown expires, and added pure local network-error failover coverage with request-log secret redaction checks.
 
 Most recent connection-testing work now plans the Test Center enabled-config batch test before execution, runs the sequential batch through a testable execution helper, and has focused coverage proving a soft stop prevents the next configuration from starting after the current target finishes, a cancellation observed during target-start handling prevents the current provider request from launching, and an individual target failure is counted while the next target still runs. Disabled configs are ignored, enabled configs with missing provider definitions are skipped without making requests, skipped counts are reported in the batch summary, and connection-test hardening now redacts plaintext keys, encrypted key ciphertext, key previews, generic auth key-value fields, OAuth/session credential fields, non-Bearer Authorization header values, cookie and proxy credential fields, request-endpoint URL userinfo, auth query parameters, URL userinfo embedded in arbitrary error text, and known secret values left in remaining endpoint text from persisted failures while covering readable 404/429 failures, AbortError-to-timeout mapping for renderer fetch and desktop transport paths, renderer-side sanitization of failed desktop transport response details, thrown desktop transport errors, non-Error thrown fetch failures, the desktop-transport missing-key guard that prevents a main-process/provider call without a saved secret, the no-auth desktop transport path for local providers that intentionally do not use an API key, the renderer fetch-path guard that records unavailable secret storage before any provider request is sent, sanitized secret decryption failures before persistence, bounded sanitized HTTP failure details for oversized provider responses, bounded sanitized desktop transport failure details for oversized transport responses, and unreadable provider response bodies still preserving the original HTTP failure result. Model-fetch transport results, thrown Error messages, and non-Error thrown values now have defensive renderer-side sanitization or generic collapse before UI use. Recent UI work also fixed Test Center and selected-config test history timestamps so stored UTC ISO values display in the user's local timezone instead of appearing 8 hours behind.
 
-The latest sessions added focused local route-proxy coverage for converted Responses multimodal request input, proving `input_text` and `input_image` parts are forwarded as Chat Completions `text` and `image_url` parts while unsupported file parts are dropped, synchronized the npm lockfile so dependency installation and `npm ci --dry-run` no longer fail on missing optional `@emnapi` entries, and added Settings-page runtime/storage-source visibility so users can tell whether the current window is reading development-origin or production-origin localStorage, which app and Electron runtime versions are active, which sanitized page URL is active, which main config localStorage key and schema version are used, which separate route-proxy profile localStorage key and schema version are used, which Electron userData directory backs the window, and how many main configs, provider templates, provider models, and route-proxy profiles are visible in the current workspace. The same Settings inventory now refreshes when route-proxy profile storage changes through import, Route Proxy save/delete, or a same-origin `storage` event from another window, and it now summarizes usable, stale, and degraded route-proxy profile counts without exposing profile names or config ids. Recent route-proxy sessions added local conversion support and coverage for Responses function tools, `tool_choice`, `parallel_tool_calls`, non-streaming upstream Chat Completions tool calls converted back into Responses `function_call` output items, and Responses `function_call` plus `function_call_output` history converted into Chat Completions assistant `tool_calls` and `tool` role messages. The same local conversion pass added Anthropic client tool conversion, Anthropic `tool_choice` conversion, `disable_parallel_tool_use` mapping, non-streaming upstream Chat Completions tool calls converted back into Anthropic `tool_use` content blocks, and Anthropic `tool_use` plus `tool_result` history converted into Chat Completions assistant `tool_calls` and `tool` role messages. The newest route-proxy pass added first-pass streaming Chat Completions tool-call delta conversion into Responses function-call SSE events and Anthropic tool-use SSE events with pure local fixtures, added pure local mixed text-before-tool streaming fixtures for converted Responses and Anthropic SSE ordering, added pure local multi-tool streaming fixtures proving indexed tool-call deltas stay separated on both converted APIs, and fixed mixed tool-before-text streaming ordering by closing in-progress tool outputs before later text output begins.
+The latest sessions added focused local route-proxy coverage for converted Responses multimodal request input, proving `input_text` and `input_image` parts are forwarded as Chat Completions `text` and `image_url` parts while unsupported file parts are dropped, synchronized the npm lockfile so dependency installation and `npm ci --dry-run` no longer fail on missing optional `@emnapi` entries, and added Settings-page runtime/storage-source visibility so users can tell whether the current window is reading development-origin or production-origin localStorage, which app and Electron runtime versions are active, which sanitized page URL is active, which main config localStorage key and schema version are used, which separate route-proxy profile localStorage key and schema version are used, which Electron userData directory backs the window, and how many main configs, provider templates, provider models, and route-proxy profiles are visible in the current workspace. The same Settings inventory now refreshes when route-proxy profile storage changes through import, Route Proxy save/delete, or a same-origin `storage` event from another window, and it now summarizes usable, stale, and degraded route-proxy profile counts without exposing profile names or config ids. Recent route-proxy sessions added local conversion support and coverage for Responses function tools, `tool_choice`, `parallel_tool_calls`, non-streaming upstream Chat Completions tool calls converted back into Responses `function_call` output items, legacy non-streaming upstream `message.function_call` output converted back into Responses `function_call` items, Responses `text.format` JSON schema/object output constraints converted into upstream Chat Completions `response_format`, and Responses `function_call` plus `function_call_output` history converted into Chat Completions assistant `tool_calls` and `tool` role messages. The same local conversion pass added Anthropic client tool conversion, Anthropic `tool_choice` conversion, `disable_parallel_tool_use` mapping, non-streaming upstream Chat Completions tool calls converted back into Anthropic `tool_use` content blocks, legacy non-streaming upstream `message.function_call` output converted back into Anthropic `tool_use` content blocks, and Anthropic `tool_use` plus `tool_result` history converted into Chat Completions assistant `tool_calls` and `tool` role messages. The newest route-proxy pass added first-pass streaming Chat Completions tool-call delta conversion into Responses function-call SSE events and Anthropic tool-use SSE events with pure local fixtures, added pure local mixed text-before-tool streaming fixtures for converted Responses and Anthropic SSE ordering, added pure local multi-tool streaming fixtures proving indexed tool-call deltas stay separated on both converted APIs, fixed mixed tool-before-text streaming ordering by closing in-progress tool outputs before later text output begins, added legacy Chat Completions `delta.function_call` streaming conversion fixtures for both converted APIs, preserved upstream Chat Completions `refusal` text for converted non-streaming plus streaming Responses and Anthropic Messages clients, preserved `refusal` fields embedded in array content parts, added non-streaming `choices[0].text` fallback for both converted clients, maps Responses `input_image.image_url` object values to Chat Completions image URLs while forwarding only `url` and `detail`, preserves sibling `input_image.detail` for string image URLs while keeping object-level detail authoritative, preserves Responses `developer` input messages when converting to upstream Chat Completions, and now passes Responses `seed` through to upstream Chat Completions requests.
 
 ## Current State
 
@@ -55,7 +55,7 @@ The latest sessions added focused local route-proxy coverage for converted Respo
 - The route proxy usage panel now generates first-pass local client adapter snippets for OpenAI SDK Chat Completions, Codex Responses, and Claude Code Anthropic Messages. These snippets point clients at the local Base URL and use only a dummy local proxy API key because the main process still injects the saved upstream credential.
 - The route proxy runtime now supports first-pass non-streaming and streaming protocol conversion from local OpenAI Responses requests to upstream Chat Completions requests for OpenAI-compatible targets that are not Responses-native. The conversion maps `instructions`, `input`, `model`, and `max_output_tokens` into Chat Completions fields, forwards to `/chat/completions`, converts successful Chat Completions JSON back into a Responses-shaped JSON with `output_text`, and bridges Chat Completions SSE deltas into Responses SSE events. Native Responses targets remain pass-through.
 - The route proxy runtime now supports first-pass non-streaming and streaming protocol conversion from local Anthropic Messages requests to upstream Chat Completions requests for OpenAI-compatible targets. The conversion maps `system`, `messages`, text and base64/url image content parts, `model`, `max_tokens`, `stop_sequences`, and common sampling/user metadata into Chat Completions fields, forwards to `/chat/completions`, converts successful Chat Completions JSON back into an Anthropic Messages-shaped JSON response, and bridges Chat Completions SSE deltas into Anthropic Messages SSE events. Native Anthropic targets remain pass-through.
-- Route-proxy protocol-conversion edge coverage now includes official OpenAI auto Responses pass-through, converted Responses and Anthropic upstream HTTP error pass-through, Anthropic URL image source conversion, converted Responses and Anthropic client tool request forwarding, non-streaming and streaming upstream tool-call/tool-use output conversion, Responses function-call-output history conversion, Anthropic tool-use/tool-result history conversion, non-streaming and streaming Anthropic `length` finish reason to `max_tokens` stop reason mapping, non-streaming and streaming Anthropic `tool_calls` finish reason to `tool_use` stop reason mapping, Anthropic invalid JSON client errors, converted non-streaming/streaming Responses/Anthropic client auth/protocol header filtering, non-streaming plus streaming converted Responses array content-part extraction, streaming converted Anthropic array content-part extraction, bounded non-streaming converted upstream response body reads, bounded streaming converted upstream SSE event buffers, bounded accumulated Responses output text during converted streaming, bounded converted response metadata fields, and non-streaming plus streaming normalized converted usage fields.
+- Route-proxy protocol-conversion edge coverage now includes official OpenAI auto Responses pass-through, converted Responses and Anthropic upstream HTTP error pass-through, Anthropic URL image source conversion, converted Responses and Anthropic client tool request forwarding, converted Responses `developer` input-role preservation, converted Responses `input_image.image_url` string and object request forwarding with detail preservation and object-field allowlisting, non-streaming and streaming upstream tool-call/tool-use output conversion, converted non-streaming/streaming Chat Completions refusal text preservation for Responses and Anthropic clients, converted array content-part refusal preservation, non-streaming upstream `choices[0].text` fallback for converted Responses and Anthropic clients, Responses function-call-output history conversion, Anthropic tool-use/tool-result history conversion, non-streaming and streaming Anthropic `length` finish reason to `max_tokens` stop reason mapping, non-streaming and streaming Anthropic `tool_calls` finish reason to `tool_use` stop reason mapping, Anthropic invalid JSON client errors, converted non-streaming/streaming Responses/Anthropic client auth/protocol header filtering, non-streaming plus streaming converted Responses array content-part extraction, streaming converted Anthropic array content-part extraction, bounded non-streaming converted upstream response body reads, bounded streaming converted upstream SSE event buffers, bounded accumulated Responses output text during converted streaming, bounded converted response metadata fields, and non-streaming plus streaming normalized converted usage fields.
 - Real saved-key route proxy verification now confirms:
   - `42API` as the primary target returns HTTP 200 for `/v1/models`, so no natural failover occurs for that healthy request.
   - A deterministic network-failure primary target fails over to the real saved-key `agnes` target, which returns HTTP 200 for `/v1/models`.
@@ -5881,6 +5881,277 @@ vidia config.
   - Keep official OpenAI calls low frequency and avoid external providers unless the user explicitly asks.
   - Continue the Next Tasks section below.
 
+2026-07-08 Route-proxy legacy streaming function-call conversion:
+
+- Completed work:
+  - Added local route-proxy conversion support for legacy streaming upstream Chat Completions `delta.function_call` chunks.
+  - Normalized legacy `function_call` streaming chunks into the existing tool-call state path so converted Responses requests emit `response.output_item.added`, `response.function_call_arguments.delta`, `response.function_call_arguments.done`, `response.output_item.done`, and `response.completed`.
+  - Normalized the same legacy chunks into converted Anthropic Messages streaming `tool_use` content blocks and `input_json_delta` events.
+  - Mapped legacy upstream `finish_reason: "function_call"` to Anthropic `stop_reason: "tool_use"`.
+  - Added pure local Responses and Anthropic streaming fixtures for the legacy function-call shape.
+  - No external provider API calls were made during development or verification.
+- Changed files:
+  - `electron/routeProxyServer.cjs`
+  - `src/services/routeProxyServer.test.ts`
+  - `docs/DEVELOPMENT_PROGRESS.md`
+- Verification:
+  - `node --check electron\routeProxyServer.cjs`: passed.
+  - `npm test -- src/services/routeProxyServer.test.ts`: passed. 1 test file, 58 tests.
+  - `npm test`: passed. 18 test files, 206 tests.
+  - `npm run build`: passed.
+  - `rg -n "console\\." src electron scripts`: no matches. The command returned exit code 1 because ripgrep found no matches.
+  - No Electron CDP smoke was run because this was pure route-proxy protocol conversion coverage.
+  - No external API calls were made.
+- Current blockers:
+  - No blocker remains for legacy streaming function-call conversion on the converted Responses and Anthropic paths.
+  - Additional provider-specific streaming edge cases can expand later only when a concrete compatibility behavior is defined.
+  - Forced official OpenAI `responses` and `chat-completions` 2xx completion verification remains pending and should be done later only with explicit low-frequency intent.
+- Exact next tasks:
+  - Continue UI polish only for concrete observed issues.
+  - Add more protocol-conversion edge fixtures only when a specific compatibility behavior is defined.
+  - Keep official OpenAI calls low frequency and avoid external providers unless the user explicitly asks.
+  - Continue the Next Tasks section below.
+
+2026-07-08 Route-proxy legacy non-streaming function-call coverage:
+
+- Completed work:
+  - Added a pure local converted Responses fixture for legacy non-streaming upstream Chat Completions `message.function_call` output.
+  - Covered conversion of legacy upstream `message.function_call` into a Responses `function_call` output item with fallback `call_0`, accumulated arguments, normalized usage, and empty `output_text`.
+  - Added a pure local converted Anthropic Messages fixture for legacy non-streaming upstream Chat Completions `message.function_call` output.
+  - Covered conversion of the same legacy output into an Anthropic `tool_use` content block with fallback `toolu_0`, parsed JSON input, normalized usage, and `stop_reason: "tool_use"`.
+  - No external provider API calls were made during development or verification.
+- Changed files:
+  - `src/services/routeProxyServer.test.ts`
+  - `docs/DEVELOPMENT_PROGRESS.md`
+- Verification:
+  - `node --check electron\routeProxyServer.cjs`: passed.
+  - `npm test -- src/services/routeProxyServer.test.ts`: passed. 1 test file, 60 tests.
+  - `npm test`: passed. 18 test files, 208 tests.
+  - `npm run build`: passed.
+  - `rg -n "console\\." src electron scripts`: no matches. The command returned exit code 1 because ripgrep found no matches.
+  - No Electron CDP smoke was run because this was pure route-proxy protocol conversion coverage.
+  - No external API calls were made.
+- Current blockers:
+  - No blocker remains for legacy non-streaming function-call conversion coverage on the converted Responses and Anthropic paths.
+  - Additional provider-specific streaming or non-streaming edge cases can expand later only when a concrete compatibility behavior is defined.
+  - Forced official OpenAI `responses` and `chat-completions` 2xx completion verification remains pending and should be done later only with explicit low-frequency intent.
+- Exact next tasks:
+  - Continue UI polish only for concrete observed issues.
+  - Add more protocol-conversion edge fixtures only when a specific compatibility behavior is defined.
+  - Keep official OpenAI calls low frequency and avoid external providers unless the user explicitly asks.
+  - Continue the Next Tasks section below.
+
+2026-07-08 Route-proxy Responses text-format conversion:
+
+- Completed work:
+  - Added local route-proxy conversion support for Responses `text.format` structured-output settings on converted Responses-to-Chat-Completions requests.
+  - Converted Responses `text.format.type: "json_schema"` into upstream Chat Completions `response_format.type: "json_schema"` with `json_schema.name`, `description`, `schema`, and `strict`.
+  - Converted Responses `text.format.type: "json_object"` into upstream Chat Completions `response_format.type: "json_object"`.
+  - Added focused pure local request-body fixtures for JSON schema and JSON object format conversion.
+  - No external provider API calls were made during development or verification.
+- Changed files:
+  - `electron/routeProxyServer.cjs`
+  - `src/services/routeProxyServer.test.ts`
+  - `docs/DEVELOPMENT_PROGRESS.md`
+- Verification:
+  - `node --check electron\routeProxyServer.cjs`: passed.
+  - `npm test -- src/services/routeProxyServer.test.ts`: passed. 1 test file, 62 tests.
+  - `npm test`: passed. 18 test files, 210 tests.
+  - `npm run build`: passed.
+  - `rg -n "console\\." src electron scripts`: no matches. The command returned exit code 1 because ripgrep found no matches.
+  - No Electron CDP smoke was run because this was pure route-proxy protocol conversion coverage.
+  - No external API calls were made.
+- Current blockers:
+  - No blocker remains for Responses `text.format` JSON schema/object request conversion on the converted Responses path.
+  - Additional provider-specific structured-output variations can expand later only when a concrete compatibility behavior is defined.
+  - Forced official OpenAI `responses` and `chat-completions` 2xx completion verification remains pending and should be done later only with explicit low-frequency intent.
+- Exact next tasks:
+  - Continue UI polish only for concrete observed issues.
+  - Add more protocol-conversion edge fixtures only when a specific compatibility behavior is defined.
+  - Keep official OpenAI calls low frequency and avoid external providers unless the user explicitly asks.
+  - Continue the Next Tasks section below.
+
+2026-07-08 Route-proxy refusal text preservation:
+
+- Completed work:
+  - Added a shared Chat Completions message-text extractor that falls back from `message.content` to `message.refusal` for converted non-streaming Responses and Anthropic Messages outputs.
+  - Added streaming delta extraction for upstream Chat Completions `delta.refusal` and `choice.refusal` so converted streaming Responses and Anthropic Messages clients receive visible assistant text instead of an empty response.
+  - Added pure local converted Responses fixtures for non-streaming `message.refusal` output and streaming `delta.refusal` output.
+  - Added pure local converted Anthropic Messages fixtures for non-streaming `message.refusal` output and streaming `delta.refusal` output.
+  - No external provider API calls were made during development or verification.
+- Changed files:
+  - `electron/routeProxyServer.cjs`
+  - `src/services/routeProxyServer.test.ts`
+  - `docs/DEVELOPMENT_PROGRESS.md`
+- Verification:
+  - Initial `npm test -- src/services/routeProxyServer.test.ts`: passed before the new change. 1 test file, 62 tests.
+  - `node --check electron\routeProxyServer.cjs`: passed.
+  - `npm test -- src/services/routeProxyServer.test.ts`: passed. 1 test file, 66 tests.
+  - `npm test`: passed. 18 test files, 214 tests.
+  - `npm run build`: passed.
+  - `rg -n "console\\." src electron scripts`: no matches. The command returned exit code 1 because ripgrep found no matches.
+  - No Electron CDP smoke was run because this was pure route-proxy protocol conversion coverage.
+  - No external API calls were made.
+- Current blockers:
+  - No blocker remains for preserving upstream refusal text on converted non-streaming and streaming Responses and Anthropic paths.
+  - Additional provider-specific protocol variations can expand later only when a concrete compatibility behavior is defined.
+  - Forced official OpenAI `responses` and `chat-completions` 2xx completion verification remains pending and should be done later only with explicit low-frequency intent.
+- Exact next tasks:
+  - Continue UI polish only for concrete observed issues.
+  - Add more protocol-conversion edge fixtures only when a specific compatibility behavior is defined.
+  - Keep official OpenAI calls low frequency and avoid external providers unless the user explicitly asks.
+  - Continue the Next Tasks section below.
+
+2026-07-08 Route-proxy content-part refusal and choice-text fallback:
+
+- Completed work:
+  - Extended converted Chat Completions text extraction so array content parts with a `refusal` string are preserved instead of dropped.
+  - Extended non-streaming converted Chat Completions output extraction to fall back from `message.content` and `message.refusal` to `choices[0].text` and `choices[0].refusal`.
+  - Expanded existing converted Responses non-streaming and streaming array content-part fixtures to include `type: "refusal"` parts.
+  - Expanded the converted Anthropic streaming array content-part fixture to include `type: "refusal"` parts.
+  - Added pure local non-streaming `choices[0].text` fixtures for converted Responses and converted Anthropic Messages clients.
+  - No external provider API calls were made during development or verification.
+- Changed files:
+  - `electron/routeProxyServer.cjs`
+  - `src/services/routeProxyServer.test.ts`
+  - `docs/DEVELOPMENT_PROGRESS.md`
+- Verification:
+  - `node --check electron\routeProxyServer.cjs`: passed after each runtime edit.
+  - `npm test -- src/services/routeProxyServer.test.ts`: passed after content-part refusal coverage. 1 test file, 66 tests.
+  - `npm test -- src/services/routeProxyServer.test.ts`: passed after choice-text fallback coverage. 1 test file, 68 tests.
+  - `npm test`: passed. 18 test files, 216 tests.
+  - `npm run build`: passed.
+  - `rg -n "console\\." src electron scripts`: no matches. The command returned exit code 1 because ripgrep found no matches.
+  - No Electron CDP smoke was run because this was pure route-proxy protocol conversion coverage.
+  - No external API calls were made.
+- Current blockers:
+  - No blocker remains for preserving content-part refusal strings or upstream `choices[0].text` on converted Responses and Anthropic paths.
+  - Additional provider-specific protocol variations can expand later only when a concrete compatibility behavior is defined.
+  - Forced official OpenAI `responses` and `chat-completions` 2xx completion verification remains pending and should be done later only with explicit low-frequency intent.
+- Exact next tasks:
+  - Continue UI polish only for concrete observed issues.
+  - Add more protocol-conversion edge fixtures only when a specific compatibility behavior is defined.
+  - Keep official OpenAI calls low frequency and avoid external providers unless the user explicitly asks.
+  - Continue the Next Tasks section below.
+
+2026-07-08 Route-proxy Responses image URL object forwarding:
+
+- Completed work:
+  - Added a local Responses-to-Chat-Completions request conversion helper for `input_image.image_url` values.
+  - Kept existing string image URL conversion behavior unchanged.
+  - Added support for object-shaped `image_url` values by forwarding only allowlisted `url` and `detail` fields into upstream Chat Completions `image_url`.
+  - Expanded the existing converted Responses multimodal input fixture to cover both string and object image URL parts and prove unrelated object fields are not forwarded.
+  - No external provider API calls were made during development or verification.
+- Changed files:
+  - `electron/routeProxyServer.cjs`
+  - `src/services/routeProxyServer.test.ts`
+  - `docs/DEVELOPMENT_PROGRESS.md`
+- Verification:
+  - `node --check electron\routeProxyServer.cjs`: passed.
+  - `npm test -- src/services/routeProxyServer.test.ts`: passed. 1 test file, 68 tests.
+  - `npm test`: passed. 18 test files, 216 tests.
+  - `npm run build`: passed.
+  - `rg -n "console\\." src electron scripts`: no matches. The command returned exit code 1 because ripgrep found no matches.
+  - No Electron CDP smoke was run because this was pure route-proxy protocol conversion coverage.
+  - No external API calls were made.
+- Current blockers:
+  - No blocker remains for converted Responses object-shaped `input_image.image_url` request forwarding.
+  - Additional provider-specific protocol variations can expand later only when a concrete compatibility behavior is defined.
+  - Forced official OpenAI `responses` and `chat-completions` 2xx completion verification remains pending and should be done later only with explicit low-frequency intent.
+- Exact next tasks:
+  - Continue UI polish only for concrete observed issues.
+  - Add more protocol-conversion edge fixtures only when a specific compatibility behavior is defined.
+  - Keep official OpenAI calls low frequency and avoid external providers unless the user explicitly asks.
+  - Continue the Next Tasks section below.
+
+2026-07-08 Route-proxy Responses image detail preservation:
+
+- Completed work:
+  - Extended converted Responses `input_image` request mapping so sibling `detail` is preserved when `image_url` is a string.
+  - Kept object-shaped `image_url.detail` authoritative when both object-level and sibling detail values are present.
+  - Expanded the existing converted Responses multimodal input fixture to prove sibling `detail` is forwarded for string image URLs and ignored for object image URLs that already carry their own detail.
+  - No external provider API calls were made during development or verification.
+- Changed files:
+  - `electron/routeProxyServer.cjs`
+  - `src/services/routeProxyServer.test.ts`
+  - `docs/DEVELOPMENT_PROGRESS.md`
+- Verification:
+  - `node --check electron\routeProxyServer.cjs`: passed.
+  - `npm test -- src/services/routeProxyServer.test.ts`: passed. 1 test file, 68 tests.
+  - `npm test`: passed. 18 test files, 216 tests.
+  - `npm run build`: passed.
+  - `rg -n "console\\." src electron scripts`: no matches. The command returned exit code 1 because ripgrep found no matches.
+  - No Electron CDP smoke was run because this was pure route-proxy protocol conversion coverage.
+  - No external API calls were made.
+- Current blockers:
+  - No blocker remains for converted Responses sibling `input_image.detail` preservation.
+  - Additional provider-specific protocol variations can expand later only when a concrete compatibility behavior is defined.
+  - Forced official OpenAI `responses` and `chat-completions` 2xx completion verification remains pending and should be done later only with explicit low-frequency intent.
+- Exact next tasks:
+  - Continue UI polish only for concrete observed issues.
+  - Add more protocol-conversion edge fixtures only when a specific compatibility behavior is defined.
+  - Keep official OpenAI calls low frequency and avoid external providers unless the user explicitly asks.
+  - Continue the Next Tasks section below.
+
+2026-07-08 Route-proxy Responses developer-role preservation:
+
+- Completed work:
+  - Preserved local Responses input messages with `role: "developer"` when converting to upstream Chat Completions messages.
+  - Added a pure local converted Responses fixture proving a developer-role input message is forwarded as `role: "developer"` instead of being downgraded to `user`.
+  - Kept unknown Responses input roles falling back to `user`.
+  - No external provider API calls were made during development or verification.
+- Changed files:
+  - `electron/routeProxyServer.cjs`
+  - `src/services/routeProxyServer.test.ts`
+  - `docs/DEVELOPMENT_PROGRESS.md`
+- Verification:
+  - `node --check electron\routeProxyServer.cjs`: passed.
+  - `npm test -- src/services/routeProxyServer.test.ts`: passed. 1 test file, 69 tests.
+  - `npm test`: passed. 18 test files, 217 tests.
+  - `npm run build`: passed.
+  - `rg -n "console\\." src electron scripts`: no matches. The command returned exit code 1 because ripgrep found no matches.
+  - No Electron CDP smoke was run because this was pure route-proxy protocol conversion coverage.
+  - No external API calls were made.
+- Current blockers:
+  - No blocker remains for converted Responses developer-role input preservation.
+  - Additional provider-specific protocol variations can expand later only when a concrete compatibility behavior is defined.
+  - Forced official OpenAI `responses` and `chat-completions` 2xx completion verification remains pending and should be done later only with explicit low-frequency intent.
+- Exact next tasks:
+  - Continue UI polish only for concrete observed issues.
+  - Add more protocol-conversion edge fixtures only when a specific compatibility behavior is defined.
+  - Keep official OpenAI calls low frequency and avoid external providers unless the user explicitly asks.
+  - Continue the Next Tasks section below.
+
+2026-07-09 Current route-proxy protocol-conversion change-set verification:
+
+- Completed work:
+  - Reviewed the current uncommitted route-proxy protocol-conversion change set covering `electron/routeProxyServer.cjs`, `src/services/routeProxyServer.test.ts`, and this progress document.
+  - Confirmed the runtime changes are matched by focused route-proxy tests for converted Responses and Anthropic compatibility edges.
+  - Verified the change set with syntax check, focused route-proxy tests, full unit tests, and production build.
+  - No runtime code changes were needed during this verification pass.
+  - No external provider API calls were made.
+- Changed files:
+  - `docs/DEVELOPMENT_PROGRESS.md`
+  - `electron/routeProxyServer.cjs`
+  - `src/services/routeProxyServer.test.ts`
+- Verification:
+  - `node --check electron\routeProxyServer.cjs`: passed.
+  - `npm test -- src/services/routeProxyServer.test.ts`: passed. 1 test file, 69 tests.
+  - `npm test`: passed. 18 test files, 217 tests.
+  - `npm run build`: passed.
+  - No Electron CDP smoke was run because this was a pure route-proxy protocol-conversion verification pass.
+  - No external API calls were made.
+- Current blockers:
+  - No blocker remains for the currently staged route-proxy protocol-conversion change set.
+  - Forced official OpenAI `responses` and `chat-completions` 2xx completion verification remains pending and should be done later only with explicit low-frequency intent.
+  - Broader provider-specific protocol variations should expand only when a concrete compatibility behavior is defined.
+- Exact next tasks:
+  - Review the final diff before committing or handing off.
+  - Continue M4 only with concrete connection-testing or route-proxy compatibility work.
+  - Add more protocol-conversion edge fixtures only when a specific compatibility behavior is defined.
+  - Re-run `npm run build` and `npm test` after the next code change.
+  - Continue the Next Tasks section below.
+
 ## Current Blockers
 
 - The sandboxed command runner cannot reliably keep background Vite/Electron GUI processes alive. For UI verification, start Vite outside the sandbox directly with `C:\Program Files\nodejs\node.exe node_modules\vite\bin\vite.js --host 127.0.0.1`, verify `5173`, then launch Electron with `VITE_DEV_SERVER_URL=http://127.0.0.1:5173/`.
@@ -5891,7 +6162,7 @@ vidia config.
 - Direct network/DNS access to `api.openai.com` is polluted/blocked on this machine. The user-level proxy at `127.0.0.1:10808` reaches OpenAI, and provider requests now use Electron `net.fetch` when available.
 - The standalone model chat module, streaming IPC, OpenAI-compatible Chat Completions response extraction, Anthropic Messages response extraction, Responses-compatible response extraction, mock incremental streaming, text attachment request shape, and image attachment request shape now have verification coverage.
 - The Settings view now displays runtime mode, app version, Electron version, active page origin, sanitized page URL, main localStorage database key and snapshot schema version, route-proxy profile localStorage key and snapshot schema version, Electron userData directory, and current workspace inventory counts including usable/stale/degraded route-proxy profile counts, which helps distinguish development-origin data from production `file://` origin data and from route-proxy profile snapshot data.
-- The route proxy module is now verified with a real saved-key streaming OpenAI-compatible request, local mock request logging smoke, local mock failover/circuit-breaker smoke, local mock HTTP 4xx non-retry smoke, local mock HTTP 5xx failover smoke, pure local network-error failover coverage, deterministic cooldown skip/failback coverage, deterministic real saved-key failover to `agnes` and `nvidia`, forwarded header filtering coverage, auth-query stripping coverage, an Electron loopback success smoke, unit-tested retry policy behavior, deterministic target-health snapshot helper coverage, first-pass opt-in durable target-health transition history, target-health diagnostics-list rendering, route-proxy diagnostics event filtering, a separate target-health history view, explicit weighted round-robin routing, first-pass local client adapter snippets, first-pass non-streaming plus streaming Responses-to-Chat-Completions conversion, first-pass non-streaming plus streaming Anthropic Messages-to-Chat-Completions conversion, and first-pass protocol-conversion edge fixtures for official Responses pass-through, upstream HTTP error pass-through for Responses and Anthropic, Anthropic URL images, converted Responses multimodal input-part request forwarding, converted Responses function tools and non-streaming upstream tool-call output, converted streaming Responses tool-call delta output, converted Anthropic custom tools and non-streaming upstream tool-use output, converted streaming Anthropic tool-use delta output, converted mixed streaming text-before-tool output for Responses and Anthropic, converted mixed streaming tool-before-text output for Responses and Anthropic, converted multi-tool streaming output for Responses and Anthropic, converted Anthropic tool-use/tool-result conversation history, non-streaming and streaming Anthropic max-token stop mapping, non-streaming and streaming Anthropic tool-use stop mapping, invalid JSON errors, converted non-streaming/streaming client auth/protocol header filtering, non-streaming plus streaming converted Responses array content-part extraction, streaming converted Anthropic array content-part extraction, and converted streaming Responses usage normalization. Broader protocol-conversion edge cases can still expand as expectations are defined.
+- The route proxy module is now verified with a real saved-key streaming OpenAI-compatible request, local mock request logging smoke, local mock failover/circuit-breaker smoke, local mock HTTP 4xx non-retry smoke, local mock HTTP 5xx failover smoke, pure local network-error failover coverage, deterministic cooldown skip/failback coverage, deterministic real saved-key failover to `agnes` and `nvidia`, forwarded header filtering coverage, auth-query stripping coverage, an Electron loopback success smoke, unit-tested retry policy behavior, deterministic target-health snapshot helper coverage, first-pass opt-in durable target-health transition history, target-health diagnostics-list rendering, route-proxy diagnostics event filtering, a separate target-health history view, explicit weighted round-robin routing, first-pass local client adapter snippets, first-pass non-streaming plus streaming Responses-to-Chat-Completions conversion, first-pass non-streaming plus streaming Anthropic Messages-to-Chat-Completions conversion, and first-pass protocol-conversion edge fixtures for official Responses pass-through, upstream HTTP error pass-through for Responses and Anthropic, Anthropic URL images, converted Responses developer-role input preservation, converted Responses multimodal input-part request forwarding, converted Responses `input_image.image_url` object forwarding with field allowlisting, converted Responses sibling `input_image.detail` preservation for string image URLs, converted Responses function tools and non-streaming upstream tool-call output, converted Responses legacy non-streaming function-call output, converted Responses structured `text.format` JSON schema/object output request formatting, converted Responses non-streaming/streaming upstream refusal text preservation, converted Responses array content-part refusal preservation, converted Responses non-streaming upstream `choices[0].text` fallback, converted streaming Responses tool-call delta output, converted streaming Responses legacy function-call delta output, converted Anthropic custom tools and non-streaming upstream tool-use output, converted Anthropic legacy non-streaming function-call output, converted Anthropic non-streaming/streaming upstream refusal text preservation, converted Anthropic streaming array content-part refusal preservation, converted Anthropic non-streaming upstream `choices[0].text` fallback, converted streaming Anthropic tool-use delta output, converted streaming Anthropic legacy function-call delta output, converted mixed streaming text-before-tool output for Responses and Anthropic, converted mixed streaming tool-before-text output for Responses and Anthropic, converted multi-tool streaming output for Responses and Anthropic, converted Anthropic tool-use/tool-result conversation history, non-streaming and streaming Anthropic max-token stop mapping, non-streaming and streaming Anthropic tool-use stop mapping, invalid JSON errors, converted non-streaming/streaming client auth/protocol header filtering, non-streaming plus streaming converted Responses array content-part extraction, streaming converted Anthropic array content-part extraction, and converted streaming Responses usage normalization. Broader protocol-conversion edge cases can still expand as expectations are defined.
 - Route proxy named profiles are implemented as a dedicated renderer localStorage snapshot and now participate in secret-free template import/export with focused import-helper coverage. They are still not embedded in the main repository snapshot.
 - Route proxy request logs remain in-memory by default. Durable diagnostics are opt-in: the model, retention policy, guard helpers, storage adapter, Electron IPC, preload, renderer transport, minimal UI controls, runtime append, target-health transition append, runtime flush coverage, retention trigger coverage, clear-append serialization coverage, clear-preserves-opt-in behavior, and UI smoke are complete. Entries are written only after explicit user enablement, and clearing entries no longer disables the opt-in state.
 - Gemini, Antigravity, Grok, and old OpenAI provider ids now migrate to `openai-compatible`; they no longer require separate provider-specific real-key verification beyond the shared OpenAI-compatible path.

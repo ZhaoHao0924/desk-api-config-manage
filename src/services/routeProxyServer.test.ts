@@ -1305,6 +1305,7 @@ describe("routeProxyServer", () => {
           instructions: "be concise",
           max_output_tokens: 32,
           model: "client-model",
+          seed: 1234,
           store: false
         }),
         headers: {
@@ -1360,6 +1361,7 @@ describe("routeProxyServer", () => {
           }
         ],
         model: "client-model",
+        seed: 1234,
         stream: false
       });
       expect(controller.getRequestLogs()).toMatchObject([
@@ -1371,6 +1373,230 @@ describe("routeProxyServer", () => {
           targetConfigId: "primary"
         }
       ]);
+    } finally {
+      await controller.stop();
+    }
+  });
+
+  it("preserves local Responses developer messages for upstream chat completions", async () => {
+    const fetchCalls: Array<{
+      body: Record<string, unknown>;
+      input: string;
+    }> = [];
+    const controller = createRouteProxyController({
+      providerFetch: async (input: string, init?: RequestInit) => {
+        const bodyText = Buffer.isBuffer(init?.body) ? init.body.toString("utf8") : String(init?.body ?? "");
+        fetchCalls.push({
+          body: JSON.parse(bodyText),
+          input
+        });
+
+        return new Response(
+          JSON.stringify({
+            choices: [
+              {
+                finish_reason: "stop",
+                message: {
+                  content: "developer role converted",
+                  role: "assistant"
+                }
+              }
+            ],
+            id: "chatcmpl-developer-role",
+            model: "upstream-model"
+          }),
+          {
+            headers: {
+              "content-type": "application/json"
+            },
+            status: 200
+          }
+        );
+      }
+    });
+
+    try {
+      const target = createRouteProxyTarget("primary", "http://127.0.0.1:3001/v1");
+      const proxyPort = await getFreePort();
+      const status = await controller.start({
+        cooldownMs: 30_000,
+        failureThreshold: 1,
+        listenAddress: "127.0.0.1",
+        listenPort: proxyPort,
+        target,
+        targets: [target],
+        timeoutMs: 5_000
+      });
+      const response = await fetch(`${status.proxyUrl}v1/responses`, {
+        body: JSON.stringify({
+          input: [
+            {
+              content: "Follow developer policy",
+              role: "developer"
+            },
+            {
+              content: "Hello",
+              role: "user"
+            }
+          ],
+          model: "client-model"
+        }),
+        headers: {
+          "content-type": "application/json"
+        },
+        method: "POST"
+      });
+
+      expect(response.status).toBe(200);
+      await expect(response.json()).resolves.toMatchObject({
+        output_text: "developer role converted"
+      });
+      expect(fetchCalls).toEqual([
+        {
+          body: {
+            messages: [
+              {
+                content: "Follow developer policy",
+                role: "developer"
+              },
+              {
+                content: "Hello",
+                role: "user"
+              }
+            ],
+            model: "client-model",
+            stream: false
+          },
+          input: "http://127.0.0.1:3001/v1/chat/completions"
+        }
+      ]);
+    } finally {
+      await controller.stop();
+    }
+  });
+
+  it("preserves upstream chat completions refusal text for converted Responses requests", async () => {
+    const controller = createRouteProxyController({
+      providerFetch: async () =>
+        new Response(
+          JSON.stringify({
+            choices: [
+              {
+                finish_reason: "stop",
+                message: {
+                  content: null,
+                  refusal: "I cannot help with that request.",
+                  role: "assistant"
+                }
+              }
+            ],
+            created: 1_788_000_001,
+            id: "chatcmpl-refusal",
+            model: "upstream-model"
+          }),
+          {
+            headers: {
+              "content-type": "application/json"
+            },
+            status: 200
+          }
+        )
+    });
+
+    try {
+      const target = createRouteProxyTarget("primary", "http://127.0.0.1:3001/v1");
+      const proxyPort = await getFreePort();
+      const status = await controller.start({
+        cooldownMs: 30_000,
+        failureThreshold: 1,
+        listenAddress: "127.0.0.1",
+        listenPort: proxyPort,
+        target,
+        targets: [target],
+        timeoutMs: 5_000
+      });
+      const response = await fetch(`${status.proxyUrl}v1/responses`, {
+        body: JSON.stringify({
+          input: "restricted request",
+          model: "client-model"
+        }),
+        headers: {
+          "content-type": "application/json"
+        },
+        method: "POST"
+      });
+
+      expect(response.status).toBe(200);
+      await expect(response.json()).resolves.toMatchObject({
+        output: [
+          {
+            content: [
+              {
+                text: "I cannot help with that request.",
+                type: "output_text"
+              }
+            ],
+            role: "assistant",
+            type: "message"
+          }
+        ],
+        output_text: "I cannot help with that request."
+      });
+    } finally {
+      await controller.stop();
+    }
+  });
+
+  it("preserves upstream chat completions choice text for converted Responses requests", async () => {
+    const controller = createRouteProxyController({
+      providerFetch: async () =>
+        new Response(
+          JSON.stringify({
+            choices: [
+              {
+                finish_reason: "stop",
+                text: "legacy choice text"
+              }
+            ],
+            id: "chatcmpl-choice-text",
+            model: "upstream-model"
+          }),
+          {
+            headers: {
+              "content-type": "application/json"
+            },
+            status: 200
+          }
+        )
+    });
+
+    try {
+      const target = createRouteProxyTarget("primary", "http://127.0.0.1:3001/v1");
+      const proxyPort = await getFreePort();
+      const status = await controller.start({
+        cooldownMs: 30_000,
+        failureThreshold: 1,
+        listenAddress: "127.0.0.1",
+        listenPort: proxyPort,
+        target,
+        targets: [target],
+        timeoutMs: 5_000
+      });
+      const response = await fetch(`${status.proxyUrl}v1/responses`, {
+        body: JSON.stringify({
+          input: "hello",
+          model: "client-model"
+        }),
+        headers: {
+          "content-type": "application/json"
+        },
+        method: "POST"
+      });
+
+      expect(response.status).toBe(200);
+      await expect(response.json()).resolves.toMatchObject({
+        output_text: "legacy choice text"
+      });
     } finally {
       await controller.stop();
     }
@@ -1527,6 +1753,309 @@ describe("routeProxyServer", () => {
             type: "function"
           }
         ]
+      });
+    } finally {
+      await controller.stop();
+    }
+  });
+
+  it("converts local Responses JSON schema text format to upstream chat completions response format", async () => {
+    const fetchCalls: Array<{
+      body: Record<string, unknown>;
+      input: string;
+    }> = [];
+    const controller = createRouteProxyController({
+      providerFetch: async (input: string, init?: RequestInit) => {
+        const bodyText = Buffer.isBuffer(init?.body) ? init.body.toString("utf8") : String(init?.body ?? "");
+        fetchCalls.push({
+          body: JSON.parse(bodyText),
+          input
+        });
+
+        return new Response(
+          JSON.stringify({
+            choices: [
+              {
+                finish_reason: "stop",
+                message: {
+                  content: "{\"city\":\"Shanghai\"}",
+                  role: "assistant"
+                }
+              }
+            ],
+            id: "chatcmpl-response-format",
+            model: "upstream-model"
+          }),
+          {
+            headers: {
+              "content-type": "application/json"
+            },
+            status: 200
+          }
+        );
+      }
+    });
+
+    try {
+      const target = createRouteProxyTarget("primary", "http://127.0.0.1:3001/v1");
+      const proxyPort = await getFreePort();
+      const status = await controller.start({
+        cooldownMs: 30_000,
+        failureThreshold: 1,
+        listenAddress: "127.0.0.1",
+        listenPort: proxyPort,
+        target,
+        targets: [target],
+        timeoutMs: 5_000
+      });
+      const schema = {
+        additionalProperties: false,
+        properties: {
+          city: {
+            type: "string"
+          }
+        },
+        required: ["city"],
+        type: "object"
+      };
+      const response = await fetch(`${status.proxyUrl}v1/responses`, {
+        body: JSON.stringify({
+          input: "Return city JSON",
+          model: "client-model",
+          text: {
+            format: {
+              description: "City response.",
+              name: "city_response",
+              schema,
+              strict: true,
+              type: "json_schema"
+            }
+          }
+        }),
+        headers: {
+          "content-type": "application/json"
+        },
+        method: "POST"
+      });
+
+      expect(response.status).toBe(200);
+      await expect(response.json()).resolves.toMatchObject({
+        output_text: "{\"city\":\"Shanghai\"}"
+      });
+      expect(fetchCalls).toEqual([
+        {
+          body: {
+            messages: [
+              {
+                content: "Return city JSON",
+                role: "user"
+              }
+            ],
+            model: "client-model",
+            response_format: {
+              json_schema: {
+                description: "City response.",
+                name: "city_response",
+                schema,
+                strict: true
+              },
+              type: "json_schema"
+            },
+            stream: false
+          },
+          input: "http://127.0.0.1:3001/v1/chat/completions"
+        }
+      ]);
+    } finally {
+      await controller.stop();
+    }
+  });
+
+  it("converts local Responses JSON object text format to upstream chat completions response format", async () => {
+    const fetchCalls: Array<{
+      body: Record<string, unknown>;
+      input: string;
+    }> = [];
+    const controller = createRouteProxyController({
+      providerFetch: async (input: string, init?: RequestInit) => {
+        const bodyText = Buffer.isBuffer(init?.body) ? init.body.toString("utf8") : String(init?.body ?? "");
+        fetchCalls.push({
+          body: JSON.parse(bodyText),
+          input
+        });
+
+        return new Response(
+          JSON.stringify({
+            choices: [
+              {
+                finish_reason: "stop",
+                message: {
+                  content: "{\"ok\":true}",
+                  role: "assistant"
+                }
+              }
+            ],
+            id: "chatcmpl-json-object",
+            model: "upstream-model"
+          }),
+          {
+            headers: {
+              "content-type": "application/json"
+            },
+            status: 200
+          }
+        );
+      }
+    });
+
+    try {
+      const target = createRouteProxyTarget("primary", "http://127.0.0.1:3001/v1");
+      const proxyPort = await getFreePort();
+      const status = await controller.start({
+        cooldownMs: 30_000,
+        failureThreshold: 1,
+        listenAddress: "127.0.0.1",
+        listenPort: proxyPort,
+        target,
+        targets: [target],
+        timeoutMs: 5_000
+      });
+      const response = await fetch(`${status.proxyUrl}v1/responses`, {
+        body: JSON.stringify({
+          input: "Return JSON",
+          model: "client-model",
+          text: {
+            format: {
+              type: "json_object"
+            }
+          }
+        }),
+        headers: {
+          "content-type": "application/json"
+        },
+        method: "POST"
+      });
+
+      expect(response.status).toBe(200);
+      await expect(response.json()).resolves.toMatchObject({
+        output_text: "{\"ok\":true}"
+      });
+      expect(fetchCalls).toEqual([
+        {
+          body: {
+            messages: [
+              {
+                content: "Return JSON",
+                role: "user"
+              }
+            ],
+            model: "client-model",
+            response_format: {
+              type: "json_object"
+            },
+            stream: false
+          },
+          input: "http://127.0.0.1:3001/v1/chat/completions"
+        }
+      ]);
+    } finally {
+      await controller.stop();
+    }
+  });
+
+  it("converts legacy upstream function calls for local Responses requests", async () => {
+    const controller = createRouteProxyController({
+      providerFetch: async () =>
+        new Response(
+          JSON.stringify({
+            choices: [
+              {
+                finish_reason: "function_call",
+                message: {
+                  content: "",
+                  function_call: {
+                    arguments: "{\"city\":\"Shanghai\"}",
+                    name: "lookup_weather"
+                  },
+                  role: "assistant"
+                }
+              }
+            ],
+            created: 1_788_000_010,
+            id: "chatcmpl-legacy-function",
+            model: "upstream-model",
+            usage: {
+              completion_tokens: 5,
+              prompt_tokens: 11,
+              total_tokens: 16
+            }
+          }),
+          {
+            headers: {
+              "content-type": "application/json"
+            },
+            status: 200
+          }
+        )
+    });
+
+    try {
+      const target = createRouteProxyTarget("primary", "http://127.0.0.1:3001/v1");
+      const proxyPort = await getFreePort();
+      const status = await controller.start({
+        cooldownMs: 30_000,
+        failureThreshold: 1,
+        listenAddress: "127.0.0.1",
+        listenPort: proxyPort,
+        target,
+        targets: [target],
+        timeoutMs: 5_000
+      });
+      const response = await fetch(`${status.proxyUrl}v1/responses`, {
+        body: JSON.stringify({
+          input: "Need weather",
+          model: "client-model",
+          tools: [
+            {
+              name: "lookup_weather",
+              parameters: {
+                properties: {
+                  city: {
+                    type: "string"
+                  }
+                },
+                required: ["city"],
+                type: "object"
+              },
+              type: "function"
+            }
+          ]
+        }),
+        headers: {
+          "content-type": "application/json"
+        },
+        method: "POST"
+      });
+
+      expect(response.status).toBe(200);
+      await expect(response.json()).resolves.toMatchObject({
+        id: "chatcmpl-legacy-function",
+        model: "upstream-model",
+        output: [
+          {
+            arguments: "{\"city\":\"Shanghai\"}",
+            call_id: "call_0",
+            name: "lookup_weather",
+            status: "completed",
+            type: "function_call"
+          }
+        ],
+        output_text: "",
+        usage: {
+          input_tokens: 11,
+          output_tokens: 5,
+          total_tokens: 16
+        }
       });
     } finally {
       await controller.stop();
@@ -1739,6 +2268,15 @@ describe("routeProxyServer", () => {
         timeoutMs: 5_000
       });
       const imageUrl = "data:image/png;base64,iVBORw0KGgo=";
+      const imageUrlObject = {
+        detail: "high",
+        ignored: "not-forwarded",
+        url: "https://example.test/object-image.png"
+      };
+      const expectedImageUrlObject = {
+        detail: "high",
+        url: imageUrlObject.url
+      };
       const response = await fetch(`${status.proxyUrl}v1/responses`, {
         body: JSON.stringify({
           input: [
@@ -1749,7 +2287,13 @@ describe("routeProxyServer", () => {
                   type: "input_text"
                 },
                 {
+                  detail: "low",
                   image_url: imageUrl,
+                  type: "input_image"
+                },
+                {
+                  detail: "ignored-sibling-detail",
+                  image_url: imageUrlObject,
                   type: "input_image"
                 },
                 {
@@ -1801,8 +2345,13 @@ describe("routeProxyServer", () => {
                   },
                   {
                     image_url: {
+                      detail: "low",
                       url: imageUrl
                     },
+                    type: "image_url"
+                  },
+                  {
+                    image_url: expectedImageUrlObject,
                     type: "image_url"
                   }
                 ],
@@ -1825,6 +2374,8 @@ describe("routeProxyServer", () => {
         }
       ]);
       expect(JSON.stringify(fetchCalls[0].body)).not.toContain("ignored-file-id");
+      expect(JSON.stringify(fetchCalls[0].body)).not.toContain("not-forwarded");
+      expect(JSON.stringify(fetchCalls[0].body)).not.toContain("ignored-sibling-detail");
     } finally {
       await controller.stop();
     }
@@ -1848,6 +2399,10 @@ describe("routeProxyServer", () => {
                     {
                       content: "third text part",
                       type: "output_text"
+                    },
+                    {
+                      refusal: "fourth refusal part",
+                      type: "refusal"
                     },
                     {
                       image_url: {
@@ -1895,7 +2450,7 @@ describe("routeProxyServer", () => {
         method: "POST"
       });
       const responseJson = await response.json();
-      const expectedOutput = "first text part\nsecond text part\nthird text part";
+      const expectedOutput = "first text part\nsecond text part\nthird text part\nfourth refusal part";
 
       expect(response.status).toBe(200);
       expect(responseJson.output_text).toBe(expectedOutput);
@@ -2348,6 +2903,70 @@ describe("routeProxyServer", () => {
     }
   });
 
+  it("preserves streaming upstream chat completions refusal deltas for converted Responses requests", async () => {
+    const controller = createRouteProxyController({
+      providerFetch: async () => {
+        const encoder = new TextEncoder();
+        const stream = new ReadableStream({
+          start(streamController) {
+            for (const chunk of [
+              'data: {"id":"chatcmpl-refusal-stream","created":1788000011,"model":"upstream-stream","choices":[{"delta":{"role":"assistant","refusal":"I cannot help."},"index":0}]}\n\n',
+              'data: {"id":"chatcmpl-refusal-stream","created":1788000011,"model":"upstream-stream","choices":[{"delta":{},"finish_reason":"stop","index":0}]}\n\n',
+              "data: [DONE]\n\n"
+            ]) {
+              streamController.enqueue(encoder.encode(chunk));
+            }
+
+            streamController.close();
+          }
+        });
+
+        return new Response(stream, {
+          headers: {
+            "content-type": "text/event-stream"
+          },
+          status: 200
+        });
+      }
+    });
+
+    try {
+      const target = createRouteProxyTarget("primary", "http://127.0.0.1:3001/v1");
+      const proxyPort = await getFreePort();
+      const status = await controller.start({
+        cooldownMs: 30_000,
+        failureThreshold: 1,
+        listenAddress: "127.0.0.1",
+        listenPort: proxyPort,
+        target,
+        targets: [target],
+        timeoutMs: 5_000
+      });
+      const response = await fetch(`${status.proxyUrl}v1/responses`, {
+        body: JSON.stringify({
+          input: "restricted request",
+          model: "client-model",
+          stream: true
+        }),
+        headers: {
+          "content-type": "application/json"
+        },
+        method: "POST"
+      });
+      const responseText = await response.text();
+
+      expect(response.status).toBe(200);
+      expect(responseText).toContain("event: response.output_text.delta");
+      expect(responseText).toContain('"delta":"I cannot help."');
+      expect(responseText).toContain("event: response.output_text.done");
+      expect(responseText).toContain('"text":"I cannot help."');
+      expect(responseText).toContain("event: response.completed");
+      expect(responseText).toContain('"output_text":"I cannot help."');
+    } finally {
+      await controller.stop();
+    }
+  });
+
   it("converts streaming local Responses tool-call deltas from upstream chat completions SSE", async () => {
     const fetchCalls: Array<{
       body: Record<string, unknown>;
@@ -2513,6 +3132,126 @@ describe("routeProxyServer", () => {
           input: "http://127.0.0.1:3001/v1/chat/completions"
         }
       ]);
+    } finally {
+      await controller.stop();
+    }
+  });
+
+  it("converts legacy streaming local Responses function-call deltas from upstream chat completions SSE", async () => {
+    const controller = createRouteProxyController({
+      providerFetch: async () => {
+        const encoder = new TextEncoder();
+        const stream = new ReadableStream({
+          start(streamController) {
+            for (const chunk of [
+              `data: ${JSON.stringify({
+                choices: [
+                  {
+                    delta: {
+                      function_call: {
+                        arguments: "{\"city\"",
+                        name: "lookup_weather"
+                      },
+                      role: "assistant"
+                    },
+                    index: 0
+                  }
+                ],
+                created: 1_788_000_010,
+                id: "chatcmpl-legacy-function-stream",
+                model: "upstream-stream"
+              })}\n\n`,
+              `data: ${JSON.stringify({
+                choices: [
+                  {
+                    delta: {
+                      function_call: {
+                        arguments: ":\"Shanghai\"}"
+                      }
+                    },
+                    finish_reason: "function_call",
+                    index: 0
+                  }
+                ],
+                id: "chatcmpl-legacy-function-stream",
+                model: "upstream-stream",
+                usage: {
+                  completion_tokens: 4,
+                  prompt_tokens: 9,
+                  total_tokens: 13
+                }
+              })}\n\n`,
+              "data: [DONE]\n\n"
+            ]) {
+              streamController.enqueue(encoder.encode(chunk));
+            }
+
+            streamController.close();
+          }
+        });
+
+        return new Response(stream, {
+          headers: {
+            "content-type": "text/event-stream"
+          },
+          status: 200
+        });
+      }
+    });
+
+    try {
+      const target = createRouteProxyTarget("primary", "http://127.0.0.1:3001/v1");
+      const proxyPort = await getFreePort();
+      const status = await controller.start({
+        cooldownMs: 30_000,
+        failureThreshold: 1,
+        listenAddress: "127.0.0.1",
+        listenPort: proxyPort,
+        target,
+        targets: [target],
+        timeoutMs: 5_000
+      });
+      const response = await fetch(`${status.proxyUrl}v1/responses`, {
+        body: JSON.stringify({
+          input: "Need weather",
+          model: "client-model",
+          stream: true,
+          tool_choice: "required",
+          tools: [
+            {
+              name: "lookup_weather",
+              parameters: {
+                properties: {
+                  city: {
+                    type: "string"
+                  }
+                },
+                required: ["city"],
+                type: "object"
+              },
+              type: "function"
+            }
+          ]
+        }),
+        headers: {
+          "content-type": "application/json"
+        },
+        method: "POST"
+      });
+      const responseText = await response.text();
+
+      expect(response.status).toBe(200);
+      expect(responseText).toContain("event: response.output_item.added");
+      expect(responseText).toContain("event: response.function_call_arguments.delta");
+      expect(responseText).toContain("event: response.function_call_arguments.done");
+      expect(responseText).toContain("event: response.output_item.done");
+      expect(responseText).toContain("event: response.completed");
+      expect(responseText).toContain('"call_id":"call_0"');
+      expect(responseText).toContain('"name":"lookup_weather"');
+      expect(responseText).toContain('"arguments":"{\\"city\\":\\"Shanghai\\"}"');
+      expect(responseText).toContain('"usage":{"input_tokens":9,"output_tokens":4,"total_tokens":13}');
+      expect(responseText).not.toContain("event: response.output_text.delta");
+      expect(responseText).not.toContain("event: response.output_text.done");
     } finally {
       await controller.stop();
     }
@@ -3041,6 +3780,10 @@ describe("routeProxyServer", () => {
                           type: "output_text"
                         },
                         {
+                          refusal: "fourth stream refusal part",
+                          type: "refusal"
+                        },
+                        {
                           image_url: {
                             url: "ignored-stream-image-url"
                           },
@@ -3097,7 +3840,7 @@ describe("routeProxyServer", () => {
         method: "POST"
       });
       const responseText = await response.text();
-      const expectedOutput = "first stream part\\nsecond stream part\\nthird stream part";
+      const expectedOutput = "first stream part\\nsecond stream part\\nthird stream part\\nfourth stream refusal part";
 
       expect(response.status).toBe(200);
       expect(responseText).toContain("event: response.output_text.delta");
@@ -3627,6 +4370,149 @@ describe("routeProxyServer", () => {
     }
   });
 
+  it("preserves upstream chat completions refusal text for converted Anthropic Messages requests", async () => {
+    const controller = createRouteProxyController({
+      providerFetch: async () =>
+        new Response(
+          JSON.stringify({
+            choices: [
+              {
+                finish_reason: "stop",
+                message: {
+                  content: null,
+                  refusal: "I cannot help with that request.",
+                  role: "assistant"
+                }
+              }
+            ],
+            id: "chatcmpl-anthropic-refusal",
+            model: "upstream-model"
+          }),
+          {
+            headers: {
+              "content-type": "application/json"
+            },
+            status: 200
+          }
+        )
+    });
+
+    try {
+      const target = createRouteProxyTarget("primary", "http://127.0.0.1:3001/v1");
+      const proxyPort = await getFreePort();
+      const status = await controller.start({
+        cooldownMs: 30_000,
+        failureThreshold: 1,
+        listenAddress: "127.0.0.1",
+        listenPort: proxyPort,
+        target,
+        targets: [target],
+        timeoutMs: 5_000
+      });
+      const response = await fetch(`${status.proxyUrl}v1/messages`, {
+        body: JSON.stringify({
+          max_tokens: 32,
+          messages: [
+            {
+              content: "restricted request",
+              role: "user"
+            }
+          ],
+          model: "claude-client"
+        }),
+        headers: {
+          "content-type": "application/json"
+        },
+        method: "POST"
+      });
+
+      expect(response.status).toBe(200);
+      await expect(response.json()).resolves.toMatchObject({
+        content: [
+          {
+            text: "I cannot help with that request.",
+            type: "text"
+          }
+        ],
+        id: "chatcmpl-anthropic-refusal",
+        model: "upstream-model",
+        role: "assistant",
+        stop_reason: "end_turn",
+        type: "message"
+      });
+    } finally {
+      await controller.stop();
+    }
+  });
+
+  it("preserves upstream chat completions choice text for converted Anthropic Messages requests", async () => {
+    const controller = createRouteProxyController({
+      providerFetch: async () =>
+        new Response(
+          JSON.stringify({
+            choices: [
+              {
+                finish_reason: "stop",
+                text: "legacy anthropic choice text"
+              }
+            ],
+            id: "chatcmpl-anthropic-choice-text",
+            model: "upstream-model"
+          }),
+          {
+            headers: {
+              "content-type": "application/json"
+            },
+            status: 200
+          }
+        )
+    });
+
+    try {
+      const target = createRouteProxyTarget("primary", "http://127.0.0.1:3001/v1");
+      const proxyPort = await getFreePort();
+      const status = await controller.start({
+        cooldownMs: 30_000,
+        failureThreshold: 1,
+        listenAddress: "127.0.0.1",
+        listenPort: proxyPort,
+        target,
+        targets: [target],
+        timeoutMs: 5_000
+      });
+      const response = await fetch(`${status.proxyUrl}v1/messages`, {
+        body: JSON.stringify({
+          max_tokens: 32,
+          messages: [
+            {
+              content: "hello",
+              role: "user"
+            }
+          ],
+          model: "claude-client"
+        }),
+        headers: {
+          "content-type": "application/json"
+        },
+        method: "POST"
+      });
+
+      expect(response.status).toBe(200);
+      await expect(response.json()).resolves.toMatchObject({
+        content: [
+          {
+            text: "legacy anthropic choice text",
+            type: "text"
+          }
+        ],
+        id: "chatcmpl-anthropic-choice-text",
+        type: "message"
+      });
+    } finally {
+      await controller.stop();
+    }
+  });
+
   it("maps Anthropic URL image content and max-token stop reasons during conversion", async () => {
     const fetchCalls: Array<{
       body: Record<string, unknown>;
@@ -4032,6 +4918,109 @@ describe("routeProxyServer", () => {
           input: "http://127.0.0.1:3001/v1/chat/completions"
         }
       ]);
+    } finally {
+      await controller.stop();
+    }
+  });
+
+  it("converts legacy upstream function calls to Anthropic tool use", async () => {
+    const controller = createRouteProxyController({
+      providerFetch: async () =>
+        new Response(
+          JSON.stringify({
+            choices: [
+              {
+                finish_reason: "function_call",
+                message: {
+                  content: "",
+                  function_call: {
+                    arguments: "{\"city\":\"Shanghai\"}",
+                    name: "lookup_weather"
+                  },
+                  role: "assistant"
+                }
+              }
+            ],
+            id: "chatcmpl-anthropic-legacy-function",
+            model: "upstream-model",
+            usage: {
+              completion_tokens: 7,
+              prompt_tokens: 12,
+              total_tokens: 19
+            }
+          }),
+          {
+            headers: {
+              "content-type": "application/json"
+            },
+            status: 200
+          }
+        )
+    });
+
+    try {
+      const target = createRouteProxyTarget("primary", "http://127.0.0.1:3001/v1");
+      const proxyPort = await getFreePort();
+      const status = await controller.start({
+        cooldownMs: 30_000,
+        failureThreshold: 1,
+        listenAddress: "127.0.0.1",
+        listenPort: proxyPort,
+        target,
+        targets: [target],
+        timeoutMs: 5_000
+      });
+      const response = await fetch(`${status.proxyUrl}v1/messages`, {
+        body: JSON.stringify({
+          max_tokens: 32,
+          messages: [
+            {
+              content: "Need weather",
+              role: "user"
+            }
+          ],
+          model: "claude-client",
+          tools: [
+            {
+              input_schema: {
+                properties: {
+                  city: {
+                    type: "string"
+                  }
+                },
+                required: ["city"],
+                type: "object"
+              },
+              name: "lookup_weather"
+            }
+          ]
+        }),
+        headers: {
+          "content-type": "application/json"
+        },
+        method: "POST"
+      });
+
+      expect(response.status).toBe(200);
+      await expect(response.json()).resolves.toMatchObject({
+        content: [
+          {
+            id: "toolu_0",
+            input: {
+              city: "Shanghai"
+            },
+            name: "lookup_weather",
+            type: "tool_use"
+          }
+        ],
+        id: "chatcmpl-anthropic-legacy-function",
+        model: "upstream-model",
+        stop_reason: "tool_use",
+        usage: {
+          input_tokens: 12,
+          output_tokens: 7
+        }
+      });
     } finally {
       await controller.stop();
     }
@@ -4507,6 +5496,78 @@ describe("routeProxyServer", () => {
     }
   });
 
+  it("preserves streaming upstream chat completions refusal deltas for converted Anthropic Messages requests", async () => {
+    const controller = createRouteProxyController({
+      providerFetch: async () => {
+        const encoder = new TextEncoder();
+        const stream = new ReadableStream({
+          start(streamController) {
+            for (const chunk of [
+              'data: {"id":"chatcmpl-anthropic-refusal-stream","model":"upstream-stream","choices":[{"delta":{"role":"assistant","refusal":"I cannot help."},"index":0}]}\n\n',
+              'data: {"id":"chatcmpl-anthropic-refusal-stream","model":"upstream-stream","choices":[{"delta":{},"finish_reason":"stop","index":0}]}\n\n',
+              "data: [DONE]\n\n"
+            ]) {
+              streamController.enqueue(encoder.encode(chunk));
+            }
+
+            streamController.close();
+          }
+        });
+
+        return new Response(stream, {
+          headers: {
+            "content-type": "text/event-stream"
+          },
+          status: 200
+        });
+      }
+    });
+
+    try {
+      const target = createRouteProxyTarget("primary", "http://127.0.0.1:3001/v1");
+      const proxyPort = await getFreePort();
+      const status = await controller.start({
+        cooldownMs: 30_000,
+        failureThreshold: 1,
+        listenAddress: "127.0.0.1",
+        listenPort: proxyPort,
+        target,
+        targets: [target],
+        timeoutMs: 5_000
+      });
+      const response = await fetch(`${status.proxyUrl}v1/messages`, {
+        body: JSON.stringify({
+          max_tokens: 32,
+          messages: [
+            {
+              content: "restricted request",
+              role: "user"
+            }
+          ],
+          model: "claude-client",
+          stream: true
+        }),
+        headers: {
+          "content-type": "application/json"
+        },
+        method: "POST"
+      });
+      const responseText = await response.text();
+
+      expect(response.status).toBe(200);
+      expect(responseText).toContain("event: content_block_start");
+      expect(responseText).toContain("event: content_block_delta");
+      expect(responseText).toContain('"type":"text_delta"');
+      expect(responseText).toContain('"text":"I cannot help."');
+      expect(responseText).toContain("event: content_block_stop");
+      expect(responseText).toContain("event: message_delta");
+      expect(responseText).toContain('"stop_reason":"end_turn"');
+      expect(responseText).toContain("event: message_stop");
+    } finally {
+      await controller.stop();
+    }
+  });
+
   it("converts streaming local Anthropic tool-use deltas from upstream chat completions SSE", async () => {
     const fetchCalls: Array<{
       body: Record<string, unknown>;
@@ -4681,6 +5742,135 @@ describe("routeProxyServer", () => {
           input: "http://127.0.0.1:3001/v1/chat/completions"
         }
       ]);
+    } finally {
+      await controller.stop();
+    }
+  });
+
+  it("converts legacy streaming local Anthropic function-call deltas from upstream chat completions SSE", async () => {
+    const controller = createRouteProxyController({
+      providerFetch: async () => {
+        const encoder = new TextEncoder();
+        const stream = new ReadableStream({
+          start(streamController) {
+            for (const chunk of [
+              `data: ${JSON.stringify({
+                choices: [
+                  {
+                    delta: {
+                      function_call: {
+                        arguments: "{\"city\"",
+                        name: "lookup_weather"
+                      },
+                      role: "assistant"
+                    },
+                    index: 0
+                  }
+                ],
+                id: "chatcmpl-anthropic-legacy-function-stream",
+                model: "upstream-stream"
+              })}\n\n`,
+              `data: ${JSON.stringify({
+                choices: [
+                  {
+                    delta: {
+                      function_call: {
+                        arguments: ":\"Shanghai\"}"
+                      }
+                    },
+                    finish_reason: "function_call",
+                    index: 0
+                  }
+                ],
+                id: "chatcmpl-anthropic-legacy-function-stream",
+                model: "upstream-stream",
+                usage: {
+                  completion_tokens: 4,
+                  prompt_tokens: 9,
+                  total_tokens: 13
+                }
+              })}\n\n`,
+              "data: [DONE]\n\n"
+            ]) {
+              streamController.enqueue(encoder.encode(chunk));
+            }
+
+            streamController.close();
+          }
+        });
+
+        return new Response(stream, {
+          headers: {
+            "content-type": "text/event-stream"
+          },
+          status: 200
+        });
+      }
+    });
+
+    try {
+      const target = createRouteProxyTarget("primary", "http://127.0.0.1:3001/v1");
+      const proxyPort = await getFreePort();
+      const status = await controller.start({
+        cooldownMs: 30_000,
+        failureThreshold: 1,
+        listenAddress: "127.0.0.1",
+        listenPort: proxyPort,
+        target,
+        targets: [target],
+        timeoutMs: 5_000
+      });
+      const response = await fetch(`${status.proxyUrl}v1/messages`, {
+        body: JSON.stringify({
+          max_tokens: 32,
+          messages: [
+            {
+              content: "Need weather",
+              role: "user"
+            }
+          ],
+          model: "claude-client",
+          stream: true,
+          tool_choice: {
+            type: "any"
+          },
+          tools: [
+            {
+              input_schema: {
+                properties: {
+                  city: {
+                    type: "string"
+                  }
+                },
+                required: ["city"],
+                type: "object"
+              },
+              name: "lookup_weather"
+            }
+          ]
+        }),
+        headers: {
+          "content-type": "application/json"
+        },
+        method: "POST"
+      });
+      const responseText = await response.text();
+
+      expect(response.status).toBe(200);
+      expect(responseText).toContain("event: content_block_start");
+      expect(responseText).toContain('"type":"tool_use"');
+      expect(responseText).toContain('"id":"toolu_0"');
+      expect(responseText).toContain('"name":"lookup_weather"');
+      expect(responseText).toContain("event: content_block_delta");
+      expect(responseText).toContain('"type":"input_json_delta"');
+      expect(responseText).toContain('"partial_json":"{\\"city\\""');
+      expect(responseText).toContain('"partial_json":":\\"Shanghai\\"}"');
+      expect(responseText).toContain("event: content_block_stop");
+      expect(responseText).toContain("event: message_delta");
+      expect(responseText).toContain('"stop_reason":"tool_use"');
+      expect(responseText).toContain('"input_tokens":0');
+      expect(responseText).toContain('"output_tokens":4');
+      expect(responseText).not.toContain('"type":"text_delta"');
     } finally {
       await controller.stop();
     }
@@ -5150,6 +6340,10 @@ describe("routeProxyServer", () => {
                           type: "output_text"
                         },
                         {
+                          refusal: "fourth anthropic stream refusal part",
+                          type: "refusal"
+                        },
+                        {
                           image_url: {
                             url: "ignored-anthropic-stream-image-url"
                           },
@@ -5212,7 +6406,8 @@ describe("routeProxyServer", () => {
         method: "POST"
       });
       const responseText = await response.text();
-      const expectedDelta = "first anthropic stream part\\nsecond anthropic stream part\\nthird anthropic stream part";
+      const expectedDelta =
+        "first anthropic stream part\\nsecond anthropic stream part\\nthird anthropic stream part\\nfourth anthropic stream refusal part";
 
       expect(response.status).toBe(200);
       expect(responseText).toContain("event: content_block_delta");
