@@ -341,12 +341,11 @@ Current result:
 
 ## 10. Next Step
 
-All defined milestones (M1 through M6) have now been completed or addressed.
+All defined milestones (M1 through M6) have now been completed. The project has transitioned into Maintenance Mode.
 
 Immediate tasks:
 
-1. Perform any final end-to-end smoke testing.
-2. Consider scoping a new phase of work or transitioning the project into maintenance mode.
-3. Keep CodeBuddy `models.json` output aligned with the public docs if that schema changes.
-4. Keep M4 protocol-conversion and provider-specific request changes closed unless a concrete compatibility behavior is defined.
-5. Re-run `npm run build` and `npm test` after each code change.
+1. Monitor for any bug reports or compatibility issues from active use.
+2. Keep CodeBuddy `models.json` output aligned with the public docs if that schema changes.
+3. Keep M4 protocol-conversion and provider-specific request changes closed unless a concrete compatibility behavior is defined.
+4. Re-run `npm run build` and `npm test` after any future code change.
