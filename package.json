@@ -3,28 +3,69 @@
   "version": "0.1.0",
   "private": true,
   "description": "Windows desktop tool for managing LLM API configuration safely.",
+  "author": "ZhaoHao",
   "main": "electron/main.cjs",
   "scripts": {
     "dev": "concurrently -k \"npm:dev:renderer\" \"npm:dev:electron\"",
     "dev:renderer": "vite --host 127.0.0.1",
     "dev:electron": "wait-on tcp:5173 && cross-env VITE_DEV_SERVER_URL=http://127.0.0.1:5173 electron .",
     "build": "tsc --noEmit && vite build",
+    "dist": "electron-builder --win --publish never",
     "preview": "vite preview",
     "test": "vitest run"
   },
-  "dependencies": {
-    "@vitejs/plugin-react": "6.0.3",
-    "electron": "43.0.0",
-    "lucide-react": "1.23.0",
-    "react": "19.2.7",
-    "react-dom": "19.2.7"
+  "build": {
+    "appId": "com.zhaohao.deskapiconfigmanager",
+    "productName": "DeskApiConfigManager",
+    "directories": {
+      "output": "release",
+      "buildResources": "assets"
+    },
+    "files": [
+      "dist/**",
+      "electron/**/*.cjs",
+      "assets/app-icon.ico",
+      "package.json"
+    ],
+    "win": {
+      "icon": "assets/app-icon.ico",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "artifactName": "${productName}-Setup-${version}.${ext}"
+    },
+    "portable": {
+      "artifactName": "${productName}-Portable-${version}.${ext}"
+    }
   },
   "devDependencies": {
     "@types/node": "26.1.0",
     "@types/react": "19.2.17",
     "@types/react-dom": "19.2.3",
+    "@vitejs/plugin-react": "6.0.3",
     "concurrently": "10.0.3",
     "cross-env": "10.1.0",
+    "electron": "43.0.0",
+    "electron-builder": "^26.15.3",
+    "lucide-react": "1.23.0",
+    "react": "19.2.7",
+    "react-dom": "19.2.7",
     "typescript": "6.0.3",
     "vite": "8.1.2",
     "vitest": "4.1.9",
