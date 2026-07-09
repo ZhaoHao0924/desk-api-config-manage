@@ -1967,7 +1967,7 @@ function createRouteProxyController(options = {}) {
     };
   }
 
-  function createRouteProxyResponsesFunctionCallOutputItems(message) {
+  function createRouteProxyResponsesFunctionCallOutputItems(message, fallbackIndexOffset = 0) {
     const outputItems = [];
 
     if (Array.isArray(message?.tool_calls)) {
@@ -1978,7 +1978,7 @@ function createRouteProxyController(options = {}) {
           continue;
         }
 
-        const outputItem = createRouteProxyResponsesFunctionCallItem(toolCall, outputItems.length);
+        const outputItem = createRouteProxyResponsesFunctionCallItem(toolCall, fallbackIndexOffset + outputItems.length);
 
         if (outputItem) {
           outputItems.push(outputItem);
@@ -1995,10 +1995,10 @@ function createRouteProxyController(options = {}) {
       const outputItem = createRouteProxyResponsesFunctionCallItem(
         {
           function: message.function_call,
-          id: "call_0",
+          id: `call_${fallbackIndexOffset}`,
           type: "function"
         },
-        0
+        fallbackIndexOffset
       );
 
       if (outputItem) {
@@ -2009,7 +2009,7 @@ function createRouteProxyController(options = {}) {
     return outputItems;
   }
 
-  function createRouteProxyResponsesMessageOutputItem(outputText, role) {
+  function createRouteProxyResponsesMessageOutputItem(outputText, role, messageIndex = 0) {
     return {
       content: [
         {
@@ -2018,10 +2018,48 @@ function createRouteProxyController(options = {}) {
           type: "output_text"
         }
       ],
-      id: "msg_0",
+      id: `msg_${messageIndex}`,
       role: normalizeRouteProxyConvertedRole(role),
       status: "completed",
       type: "message"
+    };
+  }
+
+  function createRouteProxyResponsesOutputFromChatChoices(choices) {
+    const orderedOutputItems = [];
+    const outputTexts = [];
+    let fallbackFunctionCallIndex = 0;
+    let messageIndex = 0;
+
+    for (const choice of choices) {
+      if (!choice || typeof choice !== "object") {
+        continue;
+      }
+
+      const message = choice.message && typeof choice.message === "object" ? choice.message : {};
+      const choiceOutputText = extractRouteProxyChatCompletionsChoiceText(choice).trim();
+      const functionCalls = createRouteProxyResponsesFunctionCallOutputItems(message, fallbackFunctionCallIndex);
+      fallbackFunctionCallIndex += functionCalls.length;
+
+      if (choiceOutputText) {
+        outputTexts.push(choiceOutputText);
+      }
+
+      if (choiceOutputText || functionCalls.length === 0) {
+        orderedOutputItems.push(createRouteProxyResponsesMessageOutputItem(choiceOutputText, message.role, messageIndex));
+        messageIndex += 1;
+      }
+
+      orderedOutputItems.push(...functionCalls);
+    }
+
+    if (orderedOutputItems.length === 0) {
+      orderedOutputItems.push(createRouteProxyResponsesMessageOutputItem("", "assistant"));
+    }
+
+    return {
+      orderedOutputItems,
+      outputText: outputTexts.join("\n")
     };
   }
 
@@ -2072,14 +2110,14 @@ function createRouteProxyController(options = {}) {
     const choices = Array.isArray(upstreamJson?.choices) ? upstreamJson.choices : [];
     const firstChoice = choices[0] && typeof choices[0] === "object" ? choices[0] : {};
     const message = firstChoice.message && typeof firstChoice.message === "object" ? firstChoice.message : {};
-    const outputText = extractRouteProxyChatCompletionsChoiceText(firstChoice).trim();
     const model = typeof upstreamJson?.model === "string" && upstreamJson.model ? upstreamJson.model : requestModel;
+    const { orderedOutputItems, outputText } = createRouteProxyResponsesOutputFromChatChoices(choices);
 
     return createRouteProxyResponsesResponsePayload({
       createdAt: upstreamJson?.created,
       id: upstreamJson?.id,
-      functionCalls: createRouteProxyResponsesFunctionCallOutputItems(message),
       model,
+      orderedOutputItems,
       outputText,
       role: message.role,
       usage: upstreamJson?.usage
@@ -2100,6 +2138,26 @@ function createRouteProxyController(options = {}) {
     }
 
     return "end_turn";
+  }
+
+  function deriveRouteProxyChatCompletionsChoicesAnthropicStopReason(choices) {
+    let sawMaxTokens = false;
+
+    for (const choice of choices) {
+      if (!choice || typeof choice !== "object") {
+        continue;
+      }
+
+      if (choice.finish_reason === "tool_calls" || choice.finish_reason === "function_call") {
+        return "tool_use";
+      }
+
+      if (choice.finish_reason === "length") {
+        sawMaxTokens = true;
+      }
+    }
+
+    return sawMaxTokens ? "max_tokens" : "end_turn";
   }
 
   function convertRouteProxyChatCompletionsUsageToAnthropicUsage(usage) {
@@ -2163,7 +2221,7 @@ function createRouteProxyController(options = {}) {
     };
   }
 
-  function createRouteProxyAnthropicToolUseContentBlocks(message) {
+  function createRouteProxyAnthropicToolUseContentBlocks(message, fallbackIndexOffset = 0) {
     const contentBlocks = [];
 
     if (Array.isArray(message?.tool_calls)) {
@@ -2174,7 +2232,7 @@ function createRouteProxyController(options = {}) {
           continue;
         }
 
-        const contentBlock = createRouteProxyAnthropicToolUseContentBlock(toolCall, contentBlocks.length);
+        const contentBlock = createRouteProxyAnthropicToolUseContentBlock(toolCall, fallbackIndexOffset + contentBlocks.length);
 
         if (contentBlock) {
           contentBlocks.push(contentBlock);
@@ -2191,10 +2249,10 @@ function createRouteProxyController(options = {}) {
       const contentBlock = createRouteProxyAnthropicToolUseContentBlock(
         {
           function: message.function_call,
-          id: "toolu_0",
+          id: `toolu_${fallbackIndexOffset}`,
           type: "function"
         },
-        0
+        fallbackIndexOffset
       );
 
       if (contentBlock) {
@@ -2205,29 +2263,50 @@ function createRouteProxyController(options = {}) {
     return contentBlocks;
   }
 
-  function convertRouteProxyChatCompletionsResponseToAnthropicMessages(upstreamJson, requestModel) {
-    const choices = Array.isArray(upstreamJson?.choices) ? upstreamJson.choices : [];
-    const firstChoice = choices[0] && typeof choices[0] === "object" ? choices[0] : {};
-    const message = firstChoice.message && typeof firstChoice.message === "object" ? firstChoice.message : {};
-    const outputText = extractRouteProxyChatCompletionsChoiceText(firstChoice).trim();
-    const toolUseContentBlocks = createRouteProxyAnthropicToolUseContentBlocks(message);
+  function createRouteProxyAnthropicContentFromChatChoices(choices) {
     const content = [];
+    let fallbackToolUseIndex = 0;
 
-    if (outputText || toolUseContentBlocks.length === 0) {
+    for (const choice of choices) {
+      if (!choice || typeof choice !== "object") {
+        continue;
+      }
+
+      const message = choice.message && typeof choice.message === "object" ? choice.message : {};
+      const outputText = extractRouteProxyChatCompletionsChoiceText(choice).trim();
+      const toolUseContentBlocks = createRouteProxyAnthropicToolUseContentBlocks(message, fallbackToolUseIndex);
+      fallbackToolUseIndex += toolUseContentBlocks.length;
+
+      if (outputText || toolUseContentBlocks.length === 0) {
+        content.push({
+          text: outputText,
+          type: "text"
+        });
+      }
+
+      content.push(...toolUseContentBlocks);
+    }
+
+    if (content.length === 0) {
       content.push({
-        text: outputText,
+        text: "",
         type: "text"
       });
     }
 
-    content.push(...toolUseContentBlocks);
+    return content;
+  }
+
+  function convertRouteProxyChatCompletionsResponseToAnthropicMessages(upstreamJson, requestModel) {
+    const choices = Array.isArray(upstreamJson?.choices) ? upstreamJson.choices : [];
+    const content = createRouteProxyAnthropicContentFromChatChoices(choices);
 
     const response = {
       content,
       id: normalizeRouteProxyConvertedMetadataText(upstreamJson?.id, `msg_${Date.now()}`),
       model: normalizeRouteProxyConvertedMetadataText(upstreamJson?.model, requestModel),
       role: "assistant",
-      stop_reason: mapRouteProxyChatCompletionsFinishReasonToAnthropicStopReason(firstChoice.finish_reason),
+      stop_reason: deriveRouteProxyChatCompletionsChoicesAnthropicStopReason(choices),
       stop_sequence: null,
       type: "message"
     };

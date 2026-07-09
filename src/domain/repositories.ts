@@ -2,6 +2,7 @@ import type { ApiConfig, ApiProvider, ProviderModel, TestHistoryItem } from "../
 
 export interface ProviderRepository {
   listProviders(): Promise<ApiProvider[]>;
+  saveProviders(providers: ApiProvider[]): Promise<ApiProvider[]>;
 }
 
 export interface ApiConfigRepository {

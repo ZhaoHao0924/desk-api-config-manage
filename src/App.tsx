@@ -36,6 +36,7 @@ import {
   type CodingToolTarget,
   generateCodingToolConfig
 } from "./services/codingToolConfigGenerator";
+import { createConfigSnippet, snippetFormatLabels } from "./services/configSnippetGenerator";
 import { createDesktopChatTransport } from "./services/chatTransport";
 import { runConnectionTest } from "./services/connectionTestService";
 import { createDesktopConnectionTestTransport } from "./services/connectionTestTransport";
@@ -71,6 +72,7 @@ import type {
   EnvironmentName,
   OpenAiEndpointMode,
   ProviderModel,
+  SnippetFormat,
   TestHistoryItem,
   TestStatus
 } from "./types";
@@ -711,13 +713,41 @@ export function isRouteProxyProfileStorageEvent(key: string | null): boolean {
 export function createConfigTemplateExport(
   configs: ApiConfig[],
   exportedAt = new Date().toISOString(),
-  routeProxyProfiles: RouteProxyProfile[] = []
+  routeProxyProfiles: RouteProxyProfile[] = [],
+  providers: ApiProvider[] = [],
+  providerModels: ProviderModel[] = []
 ) {
   const exportedConfigIds = new Set(configs.map((config) => config.id));
+  const exportedProviderIds = new Set([
+    ...configs.map((config) => normalizeProviderId(config.providerId)),
+    ...providers.map((provider) => normalizeProviderId(provider.id)),
+    ...providerModels.map((model) => normalizeProviderId(model.providerId))
+  ]);
 
   return {
     schemaVersion: 1,
     exportedAt,
+    providerTemplates: providers.map((provider) => ({
+      id: normalizeProviderId(provider.id),
+      name: provider.name,
+      type: provider.type,
+      defaultBaseUrl: provider.defaultBaseUrl,
+      authType: provider.authType,
+      isBuiltIn: provider.isBuiltIn
+    })),
+    providerModels: providerModels
+      .filter((model) => exportedProviderIds.has(normalizeProviderId(model.providerId)))
+      .map((model) => ({
+        id: model.id,
+        providerId: normalizeProviderId(model.providerId),
+        modelId: model.modelId,
+        displayName: model.displayName,
+        capabilities: [...model.capabilities],
+        contextWindow: model.contextWindow,
+        fetchedAt: model.fetchedAt,
+        status: model.status,
+        notes: model.notes
+      })),
     configs: configs.map((config) => ({
       sourceId: config.id,
       name: config.name,
@@ -752,9 +782,7 @@ export function createConfigTemplateExport(
 }
 
 export function createEnvSnippet(config: ApiConfig): string {
-  return `LLM_API_KEY=${config.apiKeyPreview}
-LLM_BASE_URL=${config.baseUrl}
-LLM_MODEL=${config.defaultModel}`;
+  return createConfigSnippet("env", config).content;
 }
 
 export async function writeClipboardText(text: string): Promise<void> {
@@ -816,6 +844,109 @@ export function readRouteProxyProfileTemplates(value: unknown): unknown[] {
   }
 
   return [];
+}
+
+export function readProviderTemplates(value: unknown): unknown[] {
+  if (value && typeof value === "object" && Array.isArray((value as { providerTemplates?: unknown }).providerTemplates)) {
+    return (value as { providerTemplates: unknown[] }).providerTemplates;
+  }
+
+  return [];
+}
+
+export function readProviderModelTemplates(value: unknown): unknown[] {
+  if (value && typeof value === "object" && Array.isArray((value as { providerModels?: unknown }).providerModels)) {
+    return (value as { providerModels: unknown[] }).providerModels;
+  }
+
+  return [];
+}
+
+function readProviderType(value: unknown): ApiProvider["type"] {
+  return typeof value === "string" &&
+    ["anthropic", "openai", "azure-openai", "deepseek", "qwen", "zhipu", "ollama", "lm-studio", "custom"].includes(
+      value
+    )
+    ? (value as ApiProvider["type"])
+    : "custom";
+}
+
+function readProviderAuthType(value: unknown): ApiProvider["authType"] {
+  return value === "bearer" || value === "api-key-header" || value === "none" ? value : "bearer";
+}
+
+function readProviderModelCapabilities(value: unknown): ProviderModel["capabilities"] {
+  const allowedCapabilities = new Set<ProviderModel["capabilities"][number]>(
+    Object.keys(modelCapabilityLabels) as ProviderModel["capabilities"]
+  );
+  const capabilities = Array.isArray(value)
+    ? value.filter(
+        (capability): capability is ProviderModel["capabilities"][number] =>
+          typeof capability === "string" &&
+          allowedCapabilities.has(capability as ProviderModel["capabilities"][number])
+      )
+    : [];
+  const fallbackCapabilities: ProviderModel["capabilities"] = ["chat"];
+
+  return Array.from(new Set<ProviderModel["capabilities"][number]>(capabilities.length > 0 ? capabilities : fallbackCapabilities));
+}
+
+function readProviderModelStatus(value: unknown): ProviderModel["status"] {
+  return typeof value === "string" && value in providerModelStatusLabels
+    ? (value as ProviderModel["status"])
+    : "custom";
+}
+
+export function createProviderFromTemplate(value: unknown): ApiProvider | undefined {
+  if (!value || typeof value !== "object") {
+    return undefined;
+  }
+
+  const candidate = value as Record<string, unknown>;
+  const id = normalizeProviderId(readString(candidate.id));
+
+  if (!id) {
+    return undefined;
+  }
+
+  return {
+    id,
+    name: readString(candidate.name) || id,
+    type: readProviderType(candidate.type),
+    defaultBaseUrl: readString(candidate.defaultBaseUrl),
+    authType: readProviderAuthType(candidate.authType),
+    isBuiltIn: typeof candidate.isBuiltIn === "boolean" ? candidate.isBuiltIn : false
+  };
+}
+
+export function createProviderModelFromTemplate(value: unknown): ProviderModel | undefined {
+  if (!value || typeof value !== "object") {
+    return undefined;
+  }
+
+  const candidate = value as Record<string, unknown>;
+  const providerId = normalizeProviderId(readString(candidate.providerId));
+  const modelId = readString(candidate.modelId).trim();
+
+  if (!providerId || !modelId) {
+    return undefined;
+  }
+
+  const id = readString(candidate.id) || `template-${providerId}-${toStableId(modelId) || "model"}`;
+  const contextWindow = readString(candidate.contextWindow);
+  const fetchedAt = readString(candidate.fetchedAt);
+
+  return {
+    id,
+    providerId,
+    modelId,
+    displayName: readString(candidate.displayName).trim() || modelId,
+    capabilities: readProviderModelCapabilities(candidate.capabilities),
+    contextWindow: contextWindow || undefined,
+    fetchedAt: fetchedAt || undefined,
+    status: readProviderModelStatus(candidate.status),
+    notes: readString(candidate.notes)
+  };
 }
 
 function readNumber(value: unknown): number | undefined {
@@ -1102,6 +1233,62 @@ function CodingToolConfigPanel({
   );
 }
 
+function ConfigSnippetPanel({
+  config,
+  selectedFormat,
+  copyStatus,
+  onSelectFormat,
+  onCopy
+}: {
+  config: ApiConfig;
+  selectedFormat: SnippetFormat;
+  copyStatus: string;
+  onSelectFormat: (format: SnippetFormat) => void;
+  onCopy: (content: string) => void;
+}) {
+  const generatedSnippet = createConfigSnippet(selectedFormat, config);
+
+  return (
+    <div className="snippetPanel genericSnippetPanel">
+      <div className="panelTitle">
+        <div>
+          <h2>通用片段</h2>
+          <p>{generatedSnippet.fileName}</p>
+        </div>
+        <button className="iconButton" title="复制片段" type="button" onClick={() => onCopy(generatedSnippet.content)}>
+          <Clipboard size={17} />
+        </button>
+      </div>
+
+      <div className="toolTabs genericSnippetTabs" role="tablist" aria-label="通用片段格式">
+        {(Object.keys(snippetFormatLabels) as SnippetFormat[]).map((format) => (
+          <button
+            className={selectedFormat === format ? "activeToolTab" : ""}
+            key={format}
+            onClick={() => onSelectFormat(format)}
+            type="button"
+          >
+            {snippetFormatLabels[format]}
+          </button>
+        ))}
+      </div>
+
+      <div className="toolConfigHeader genericSnippetHeader">
+        <div>
+          <strong>{generatedSnippet.title}</strong>
+          <p>{generatedSnippet.description}</p>
+        </div>
+        <button className="secondaryButton" type="button" onClick={() => onCopy(generatedSnippet.content)}>
+          <Clipboard size={18} />
+          {copyStatus || "复制片段"}
+        </button>
+      </div>
+
+      <pre>{generatedSnippet.content}</pre>
+    </div>
+  );
+}
+
 function InfoRow({ label, value }: { label: string; value: string | number }) {
   return (
     <div className="infoRow">
@@ -1376,7 +1563,7 @@ export function App() {
   const routeProxyProfileStore = useMemo(() => createLocalStorageRouteProxyProfileStore(), []);
   const importInputRef = useRef<HTMLInputElement>(null);
   const toolConfigPanelRef = useRef<HTMLDivElement>(null);
-  const envSnippetPanelRef = useRef<HTMLDivElement>(null);
+  const genericSnippetPanelRef = useRef<HTMLDivElement>(null);
   const batchTestCancelRef = useRef(false);
   const [query, setQuery] = useState("");
   const [activeSection, setActiveSection] = useState<AppSection>("configs");
@@ -1388,6 +1575,7 @@ export function App() {
   const [selectedId, setSelectedId] = useState("");
   const [selectedModelId, setSelectedModelId] = useState("");
   const [selectedCodingTool, setSelectedCodingTool] = useState<CodingToolTarget>("codex");
+  const [selectedSnippetFormat, setSelectedSnippetFormat] = useState<SnippetFormat>("env");
   const [copyStatus, setCopyStatus] = useState("");
   const [secretStorageAvailable, setSecretStorageAvailable] = useState(false);
   const [revealedSecret, setRevealedSecret] = useState<{ configId: string; value: string }>();
@@ -2080,7 +2268,13 @@ export function App() {
 
   const exportConfigTemplates = () => {
     const routeProxyProfiles = routeProxyProfileStore?.listProfiles() ?? [];
-    const exportSnapshot = createConfigTemplateExport(configs, new Date().toISOString(), routeProxyProfiles);
+    const exportSnapshot = createConfigTemplateExport(
+      configs,
+      new Date().toISOString(),
+      routeProxyProfiles,
+      providers,
+      providerModels
+    );
     const blob = new Blob([JSON.stringify(exportSnapshot, null, 2)], {
       type: "application/json"
     });
@@ -2092,17 +2286,26 @@ export function App() {
     link.click();
     URL.revokeObjectURL(objectUrl);
     const profileCount = exportSnapshot.routeProxyProfiles.length;
+    const providerTemplateCount = exportSnapshot.providerTemplates.length;
+    const providerModelCount = exportSnapshot.providerModels.length;
     setTemporaryToolbarStatus(
       profileCount > 0
-        ? `已导出 ${configs.length} 项模板、${profileCount} 个代理方案，不含密钥`
-        : `已导出 ${configs.length} 项模板，不含密钥`
+        ? `已导出 ${configs.length} 项模板、${providerTemplateCount} 个供应商、${providerModelCount} 个模型、${profileCount} 个代理方案，不含密钥`
+        : `已导出 ${configs.length} 项模板、${providerTemplateCount} 个供应商、${providerModelCount} 个模型，不含密钥`
     );
   };
 
   const importConfigTemplates = async (file: File) => {
     try {
       const parsedValue: unknown = JSON.parse(await file.text());
-      const knownProviderIds = new Set(providers.map((provider) => provider.id));
+      const providerTemplates = readProviderTemplates(parsedValue);
+      const providerModelTemplates = readProviderModelTemplates(parsedValue);
+      const importedProviders = providerTemplates
+        .map(createProviderFromTemplate)
+        .filter((provider): provider is ApiProvider => Boolean(provider));
+      const availableProviders =
+        importedProviders.length > 0 ? await repository.saveProviders(importedProviders) : providers;
+      const knownProviderIds = new Set(availableProviders.map((provider) => normalizeProviderId(provider.id)));
       const configTemplates = readConfigTemplates(parsedValue);
       const profileTemplates = readRouteProxyProfileTemplates(parsedValue);
       const sourceConfigIds = configTemplates.map((item) => {
@@ -2130,13 +2333,23 @@ export function App() {
           isEnabled: typeof candidate.isEnabled === "boolean" ? candidate.isEnabled : true
         };
       });
+      const importedProviderModels = providerModelTemplates
+        .map(createProviderModelFromTemplate)
+        .filter((model): model is ProviderModel => Boolean(model))
+        .filter((model) => knownProviderIds.has(normalizeProviderId(model.providerId)));
 
-      if (importedInputs.length === 0 && profileTemplates.length === 0) {
+      if (
+        importedInputs.length === 0 &&
+        profileTemplates.length === 0 &&
+        importedProviders.length === 0 &&
+        importedProviderModels.length === 0
+      ) {
         throw new Error("未找到可导入的配置模板");
       }
 
       const createdConfigs: ApiConfig[] = [];
       const importedConfigIdsBySourceId = new Map<string, string>();
+      let importedProviderModelCount = 0;
 
       for (const [index, input] of importedInputs.entries()) {
         const createdConfig = await createApiConfig(repository, input);
@@ -2146,6 +2359,23 @@ export function App() {
 
         if (sourceConfigId) {
           importedConfigIdsBySourceId.set(sourceConfigId, createdConfig.id);
+        }
+      }
+
+      if (importedProviderModels.length > 0) {
+        const modelsByProviderId = new Map<string, ProviderModel[]>();
+
+        for (const model of importedProviderModels) {
+          const providerId = normalizeProviderId(model.providerId);
+          const models = modelsByProviderId.get(providerId) ?? [];
+
+          models.push(model);
+          modelsByProviderId.set(providerId, models);
+        }
+
+        for (const [providerId, models] of modelsByProviderId) {
+          await repository.saveProviderModels(providerId, models);
+          importedProviderModelCount += models.length;
         }
       }
 
@@ -2170,11 +2400,16 @@ export function App() {
         }
       }
 
-      if (createdConfigs.length === 0 && importedProfiles.length === 0) {
-        throw new Error("未找到可导入的配置模板或代理方案");
+      if (
+        createdConfigs.length === 0 &&
+        importedProfiles.length === 0 &&
+        importedProviders.length === 0 &&
+        importedProviderModelCount === 0
+      ) {
+        throw new Error("未找到可导入的配置模板、模型目录或代理方案");
       }
 
-      setActiveSection(createdConfigs.length > 0 ? "configs" : "proxy");
+      setActiveSection(createdConfigs.length > 0 ? "configs" : importedProfiles.length > 0 ? "proxy" : "providers");
       setProviderFilter(allProviderFilterId);
       setQuery("");
       setSelectedId((currentSelectedId) => createdConfigs[0]?.id ?? currentSelectedId);
@@ -2182,8 +2417,13 @@ export function App() {
       await loadData();
       const configImportText =
         createdConfigs.length > 0 ? `已导入 ${createdConfigs.length} 项模板，请补充 API Key` : "";
+      const providerImportText = importedProviders.length > 0 ? `已导入 ${importedProviders.length} 个供应商` : "";
+      const modelImportText =
+        importedProviderModelCount > 0 ? `已导入 ${importedProviderModelCount} 个模型目录` : "";
       const profileImportText = importedProfiles.length > 0 ? `已导入 ${importedProfiles.length} 个代理方案` : "";
-      setTemporaryToolbarStatus([configImportText, profileImportText].filter(Boolean).join("；"));
+      setTemporaryToolbarStatus(
+        [configImportText, providerImportText, modelImportText, profileImportText].filter(Boolean).join("；")
+      );
     } catch (error) {
       setTemporaryToolbarStatus(error instanceof Error ? error.message : "导入失败");
     }
@@ -2223,12 +2463,12 @@ export function App() {
     window.setTimeout(() => setCopyStatus(""), 1600);
   };
 
-  const copySelectedEnvSnippet = async () => {
+  const copySelectedConfigSnippet = async () => {
     if (!selectedConfig) {
       return;
     }
 
-    await copyGeneratedConfig(createEnvSnippet(selectedConfig));
+    await copyGeneratedConfig(createConfigSnippet(selectedSnippetFormat, selectedConfig).content);
   };
 
   const closeWindow = () => {
@@ -2714,9 +2954,9 @@ export function App() {
                     <FileCode2 size={18} />
                     生成片段
                   </button>
-                  <button className="secondaryButton" type="button" onClick={copySelectedEnvSnippet}>
+                  <button className="secondaryButton" type="button" onClick={copySelectedConfigSnippet}>
                     <Clipboard size={18} />
-                    复制环境变量
+                    复制片段
                   </button>
                   <button className="secondaryButton" onClick={startEdit}>
                     <Pencil size={18} />
@@ -2750,14 +2990,14 @@ export function App() {
                   />
                 </div>
 
-                <div className="snippetPanel" ref={envSnippetPanelRef}>
-                  <div className="panelTitle">
-                    <h2>.env</h2>
-                    <button className="iconButton" title="复制片段" type="button" onClick={copySelectedEnvSnippet}>
-                      <Clipboard size={17} />
-                    </button>
-                  </div>
-                  <pre>{createEnvSnippet(selectedConfig)}</pre>
+                <div ref={genericSnippetPanelRef}>
+                  <ConfigSnippetPanel
+                    config={selectedConfig}
+                    selectedFormat={selectedSnippetFormat}
+                    copyStatus={copyStatus}
+                    onSelectFormat={setSelectedSnippetFormat}
+                    onCopy={copyGeneratedConfig}
+                  />
                 </div>
 
                 <div className="historyPanel">

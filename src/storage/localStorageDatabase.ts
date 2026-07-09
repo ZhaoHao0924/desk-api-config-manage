@@ -77,18 +77,27 @@ function normalizeConfig(config: ApiConfig): ApiConfig {
 }
 
 function normalizeProviders(providers: ApiProvider[]): ApiProvider[] {
-  const customProviders = providers.filter((provider) => {
+  const customProvidersById = new Map<string, ApiProvider>();
+
+  for (const provider of providers) {
     const normalizedProviderId = normalizeProviderId(provider.id);
 
-    return (
+    if (
       !provider.isBuiltIn &&
       !defaultProviders.some((defaultProvider) => defaultProvider.id === normalizedProviderId) &&
       !retiredBuiltInProviderIds.has(provider.id) &&
       !retiredBuiltInProviderIds.has(normalizedProviderId)
-    );
-  });
+    ) {
+      customProvidersById.set(normalizedProviderId, {
+        ...provider,
+        id: normalizedProviderId,
+        name: provider.name.trim() || normalizedProviderId,
+        defaultBaseUrl: provider.defaultBaseUrl.trim()
+      });
+    }
+  }
 
-  return [...defaultProviders, ...customProviders];
+  return [...defaultProviders, ...customProvidersById.values()];
 }
 
 function getProviderModelKey(providerId: string, modelId: string): string {
@@ -252,6 +261,15 @@ export class LocalStorageConfigRepository implements ConfigRepository {
 
   async listProviders(): Promise<ApiProvider[]> {
     return this.read().providers.map((provider) => ({ ...provider }));
+  }
+
+  async saveProviders(providers: ApiProvider[]): Promise<ApiProvider[]> {
+    const snapshot = this.read();
+
+    snapshot.providers = normalizeProviders([...snapshot.providers, ...providers]);
+    this.write(snapshot);
+
+    return this.listProviders();
   }
 
   async listProviderModels(providerId?: string): Promise<ProviderModel[]> {

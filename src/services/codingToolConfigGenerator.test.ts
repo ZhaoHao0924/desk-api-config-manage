@@ -82,14 +82,72 @@ describe("codingToolConfigGenerator", () => {
     expect(generatedConfig.content).not.toContain("env_key");
   });
 
-  it("generates a CodeBuddy provider template", () => {
+  it("generates CodeBuddy models.json from the official local model schema", () => {
     const generatedConfig = generateCodingToolConfig("codebuddy", {
       provider: openAiProvider,
       model: openAiModel,
       baseUrl: "https://api.openai.com/v1"
     });
+    const parsedContent = JSON.parse(generatedConfig.content);
 
-    expect(generatedConfig.fileName).toBe(".codebuddy/model-provider.json");
-    expect(generatedConfig.content).toContain('"compatibleApi": "openai-compatible"');
+    expect(generatedConfig.fileName).toBe(".codebuddy/models.json");
+    expect(parsedContent).toEqual({
+      models: [
+        {
+          id: "gpt-4.1-mini",
+          name: "GPT-4.1 mini",
+          vendor: openAiProvider.name,
+          url: "https://api.openai.com/v1/chat/completions",
+          supportsToolCall: true,
+          supportsImages: true,
+          supportsReasoning: false,
+          apiKey: "${OPENAI_COMPATIBLE_API_KEY}"
+        }
+      ],
+      availableModels: ["gpt-4.1-mini"]
+    });
+  });
+
+  it("omits CodeBuddy apiKey for no-auth local providers", () => {
+    const generatedConfig = generateCodingToolConfig("codebuddy", {
+      provider: noAuthProvider,
+      model: noAuthModel,
+      baseUrl: "http://localhost:11434/v1"
+    });
+    const parsedContent = JSON.parse(generatedConfig.content);
+
+    expect(parsedContent.models[0]).toEqual({
+      id: "local-chat",
+      name: "Local Chat",
+      vendor: "Local OpenAI-compatible",
+      url: "http://localhost:11434/v1/chat/completions",
+      supportsToolCall: false,
+      supportsImages: false,
+      supportsReasoning: false
+    });
+  });
+
+  it("uses a compatible-gateway placeholder for Anthropic CodeBuddy output", () => {
+    const generatedConfig = generateCodingToolConfig("codebuddy", {
+      provider: anthropicProvider,
+      model: defaultProviderModels.find((model) => model.modelId === "claude-sonnet-4-5")!,
+      baseUrl: "https://api.anthropic.com/v1"
+    });
+    const parsedContent = JSON.parse(generatedConfig.content);
+
+    expect(parsedContent.models[0].url).toBe("<OPENAI_COMPATIBLE_CHAT_COMPLETIONS_URL>");
+    expect(parsedContent.models[0].apiKey).toBe("${CODEBUDDY_MODEL_API_KEY}");
+    expect(parsedContent.models[0].url).not.toContain("api.anthropic.com/v1/chat/completions");
+  });
+
+  it("keeps CodeBuddy generation render-safe when Base URL is missing", () => {
+    const generatedConfig = generateCodingToolConfig("codebuddy", {
+      provider: noAuthProvider,
+      model: noAuthModel,
+      baseUrl: ""
+    });
+    const parsedContent = JSON.parse(generatedConfig.content);
+
+    expect(parsedContent.models[0].url).toBe("<BASE_URL>/chat/completions");
   });
 });

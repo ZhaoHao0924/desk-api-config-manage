@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { openAiCompatibleProviderId } from "../types";
-import type { ApiConfig, ProviderModel } from "../types";
+import type { ApiConfig, ApiProvider, ProviderModel } from "../types";
 import { LocalStorageConfigRepository, localStorageDatabaseKey } from "./localStorageDatabase";
 
 class MemoryStorage {
@@ -44,6 +44,43 @@ describe("LocalStorageConfigRepository", () => {
     await expect(repository.listProviders()).resolves.toHaveLength(2);
     await expect(repository.listProviderModels()).resolves.toHaveLength(10);
     await expect(repository.listConfigs()).resolves.toHaveLength(5);
+  });
+
+  it("persists imported custom provider templates", async () => {
+    const storage = new MemoryStorage();
+    const repository = new LocalStorageConfigRepository(storage);
+    const importedProvider: ApiProvider = {
+      authType: "bearer",
+      defaultBaseUrl: "https://custom.example.com/v1",
+      id: "custom-provider",
+      isBuiltIn: false,
+      name: "Custom Provider",
+      type: "custom"
+    };
+
+    await repository.saveProviders([importedProvider]);
+    await repository.saveProviders([
+      {
+        ...importedProvider,
+        name: "Custom Provider Updated"
+      }
+    ]);
+
+    const secondRepository = new LocalStorageConfigRepository(storage);
+    const providers = await secondRepository.listProviders();
+
+    expect(providers).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          defaultBaseUrl: "https://custom.example.com/v1",
+          id: "custom-provider",
+          isBuiltIn: false,
+          name: "Custom Provider Updated",
+          type: "custom"
+        })
+      ])
+    );
+    expect(providers.filter((provider) => provider.id === "custom-provider")).toHaveLength(1);
   });
 
   it("filters provider models by provider", async () => {

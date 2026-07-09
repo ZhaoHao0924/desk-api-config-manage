@@ -6,6 +6,8 @@ import {
   createConnectionTestBatchPlan,
   createEnvSnippet,
   createFetchedProviderModels,
+  createProviderFromTemplate,
+  createProviderModelFromTemplate,
   createProviderFilterItems,
   createProviderSelectOptions,
   createRouteProxyProfileFromTemplate,
@@ -30,6 +32,8 @@ import {
   isRouteProxyProfileStorageEvent,
   openAiCompatibleProviderFilterId,
   pickCreateProvider,
+  readProviderModelTemplates,
+  readProviderTemplates,
   readRouteProxyProfileTemplates,
   runConnectionTestBatchPlan,
   shouldShowEndpointMode,
@@ -696,6 +700,118 @@ describe("App state helpers", () => {
     expect(rawSnapshot).not.toContain("sk-test");
     expect(rawSnapshot).not.toContain("apiKeyPreview");
     expect(rawSnapshot).not.toContain("profile-secret");
+  });
+
+  it("exports provider templates and provider model catalogs without secrets", () => {
+    const snapshot = createConfigTemplateExport(
+      [],
+      "2026-07-04T00:00:00.000Z",
+      [],
+      [
+        {
+          authType: "bearer",
+          defaultBaseUrl: "https://custom.example.com/v1",
+          id: "custom-provider",
+          isBuiltIn: false,
+          name: "Custom Provider",
+          type: "custom"
+        }
+      ],
+      [
+        {
+          capabilities: ["chat", "tools"],
+          fetchedAt: "2026-07-04T00:00:00.000Z",
+          id: "model-custom",
+          modelId: "custom-chat",
+          notes: "team catalog",
+          providerId: "custom-provider",
+          displayName: "Custom Chat",
+          status: "available"
+        }
+      ]
+    );
+    const rawSnapshot = JSON.stringify(snapshot);
+
+    expect(snapshot.providerTemplates).toEqual([
+      {
+        authType: "bearer",
+        defaultBaseUrl: "https://custom.example.com/v1",
+        id: "custom-provider",
+        isBuiltIn: false,
+        name: "Custom Provider",
+        type: "custom"
+      }
+    ]);
+    expect(snapshot.providerModels).toEqual([
+      {
+        capabilities: ["chat", "tools"],
+        contextWindow: undefined,
+        fetchedAt: "2026-07-04T00:00:00.000Z",
+        id: "model-custom",
+        modelId: "custom-chat",
+        notes: "team catalog",
+        providerId: "custom-provider",
+        displayName: "Custom Chat",
+        status: "available"
+      }
+    ]);
+    expect(rawSnapshot).not.toContain("encryptedApiKey");
+    expect(rawSnapshot).not.toContain("apiKeyPreview");
+  });
+
+  it("reads provider and model templates only from exported snapshots", () => {
+    const providerTemplates = [{ name: "Custom Provider" }];
+    const providerModels = [{ modelId: "custom-chat" }];
+
+    expect(readProviderTemplates({ providerTemplates })).toEqual(providerTemplates);
+    expect(readProviderTemplates([{ providerTemplates }])).toEqual([]);
+    expect(readProviderTemplates({ providerTemplates: "invalid" })).toEqual([]);
+    expect(readProviderTemplates({})).toEqual([]);
+
+    expect(readProviderModelTemplates({ providerModels })).toEqual(providerModels);
+    expect(readProviderModelTemplates([{ providerModels }])).toEqual([]);
+    expect(readProviderModelTemplates({ providerModels: "invalid" })).toEqual([]);
+    expect(readProviderModelTemplates({})).toEqual([]);
+  });
+
+  it("creates providers and provider models from imported templates", () => {
+    expect(
+      createProviderFromTemplate({
+        authType: "none",
+        defaultBaseUrl: "http://localhost:11434/v1",
+        id: "local-provider",
+        name: "Local Provider",
+        type: "ollama"
+      })
+    ).toEqual({
+      authType: "none",
+      defaultBaseUrl: "http://localhost:11434/v1",
+      id: "local-provider",
+      isBuiltIn: false,
+      name: "Local Provider",
+      type: "ollama"
+    });
+    expect(createProviderFromTemplate({ name: "Missing id" })).toBeUndefined();
+    expect(
+      createProviderModelFromTemplate({
+        capabilities: ["chat", "invalid", "tools", "chat"],
+        displayName: "",
+        modelId: "team/model",
+        providerId: "openai",
+        status: "invalid"
+      })
+    ).toEqual({
+      capabilities: ["chat", "tools"],
+      contextWindow: undefined,
+      fetchedAt: undefined,
+      id: "template-openai-compatible-team-model",
+      modelId: "team/model",
+      providerId: openAiCompatibleProviderFilterId,
+      displayName: "team/model",
+      notes: "",
+      status: "custom"
+    });
+    expect(createProviderModelFromTemplate({ providerId: "custom-provider" })).toBeUndefined();
   });
 
   it("reads route proxy profile templates only from exported snapshots", () => {

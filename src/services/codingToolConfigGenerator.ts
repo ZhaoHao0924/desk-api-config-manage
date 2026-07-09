@@ -1,5 +1,6 @@
 import type { ApiProvider, ProviderModel } from "../types";
 import { openAiCompatibleProviderId } from "../types";
+import { buildChatCompletionsUrl } from "./connectionTestService";
 
 export type CodingToolTarget = "claude-code" | "codex" | "codebuddy";
 
@@ -82,6 +83,36 @@ export function getProviderApiKeyEnv(provider: ApiProvider): string {
   return `${toEnvName(provider.name)}_API_KEY`;
 }
 
+function getCodeBuddyChatCompletionsUrl(input: CodingToolConfigInput): string {
+  if (input.provider.type === "anthropic") {
+    return "<OPENAI_COMPATIBLE_CHAT_COMPLETIONS_URL>";
+  }
+
+  const trimmedBaseUrl = input.baseUrl.trim();
+
+  if (!trimmedBaseUrl) {
+    return "<BASE_URL>/chat/completions";
+  }
+
+  try {
+    return buildChatCompletionsUrl(trimmedBaseUrl, input.provider);
+  } catch {
+    return `${trimmedBaseUrl.replace(/\/+$/, "")}/chat/completions`;
+  }
+}
+
+function getCodeBuddyApiKeyEnv(provider: ApiProvider): string {
+  if (provider.authType === "none") {
+    return "";
+  }
+
+  if (provider.type === "anthropic") {
+    return "CODEBUDDY_MODEL_API_KEY";
+  }
+
+  return getProviderApiKeyEnv(provider);
+}
+
 export function generateClaudeCodeConfig(input: CodingToolConfigInput): GeneratedCodingToolConfig {
   const apiKeyEnv = getProviderApiKeyEnv(input.provider);
   const claudeCodeAuthEnvKey = getClaudeCodeAuthEnvKey(input.provider);
@@ -144,28 +175,41 @@ ${envKeyLine}wire_api = "responses"
 }
 
 export function generateCodeBuddyConfig(input: CodingToolConfigInput): GeneratedCodingToolConfig {
-  const apiKeyEnv = getProviderApiKeyEnv(input.provider);
+  const apiKeyEnv = getCodeBuddyApiKeyEnv(input.provider);
+  const modelConfig: {
+    id: string;
+    name: string;
+    vendor: string;
+    apiKey?: string;
+    url: string;
+    supportsToolCall: boolean;
+    supportsImages: boolean;
+    supportsReasoning: boolean;
+  } = {
+    id: input.model.modelId,
+    name: input.model.displayName,
+    vendor: input.provider.name,
+    url: getCodeBuddyChatCompletionsUrl(input),
+    supportsToolCall: input.model.capabilities.includes("tools"),
+    supportsImages: input.model.capabilities.includes("vision"),
+    supportsReasoning: input.model.capabilities.includes("reasoning")
+  };
+
+  if (apiKeyEnv) {
+    modelConfig.apiKey = `\${${apiKeyEnv}}`;
+  }
 
   return {
     target: "codebuddy",
-    title: "CodeBuddy provider template",
-    fileName: ".codebuddy/model-provider.json",
+    title: "CodeBuddy models.json",
+    fileName: ".codebuddy/models.json",
     language: "json",
     description:
-      "未找到可验证的 CodeBuddy 公开本地供应商配置规范；这里生成通用参考模板，需要按 CodeBuddy 实际入口调整。",
+      "用于 CodeBuddy Code 项目级 models.json；CodeBuddy 文档要求 OpenAI-compatible Chat Completions 完整接口路径，非兼容原生 API 需改为兼容网关 URL。",
     content: JSON.stringify(
       {
-        provider: {
-          name: input.provider.name,
-          baseUrl: input.baseUrl,
-          apiKeyEnv: apiKeyEnv || null,
-          compatibleApi: input.provider.authType === "none" ? "none" : "openai-compatible"
-        },
-        model: {
-          id: input.model.modelId,
-          displayName: input.model.displayName,
-          capabilities: input.model.capabilities
-        }
+        models: [modelConfig],
+        availableModels: [input.model.modelId]
       },
       null,
       2

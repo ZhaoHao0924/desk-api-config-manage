@@ -2361,6 +2361,10 @@ button:disabled {
   color: #0b7476;
 }
 
+.genericSnippetTabs {
+  flex-wrap: wrap;
+}
+
 .toolConfigHeader {
   display: flex;
   align-items: center;

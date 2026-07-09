@@ -4,13 +4,13 @@ Last updated: 2026-07-09
 
 ## Current Milestone
 
-M4 connection testing hardening is partially implemented. Anthropic provider-specific connection test requests are implemented, OpenAI-compatible configs now separate provider type from endpoint mode, legacy OpenAI/Gemini/Antigravity/Grok provider ids now migrate to one `openai-compatible` provider id, sidebar provider filtering groups OpenAI-compatible providers, Anthropic and OpenAI-compatible real-key success have been verified, the multi-window localStorage consistency fix is implemented and fresh-launch verified, desktop saved-key reveal/copy/clipboard clearing has been verified in a fresh Electron window, available third-party endpoint modes have been verified with real saved keys, live fetched provider model catalogs are now persisted with visible refresh timestamps, the desktop app now has a custom taskbar/window icon and favicon matching the in-app `KeyRound` brand mark instead of the default framework icon, the left sidebar stays fixed while the right workbench scrolls, the supported-model panel is collapsed by default, detail-panel snippet copy actions are wired, model chat is now a standalone sidebar module backed by main-process IPC with default streaming responses, manual supported-path thinking mode, an OpenAI-compatible endpoint-mode selector, an internal message scrollbar for long conversations, no visible new-config toolbar action, and real saved-key streaming chat verified through 42API, agnes, and nvidia Chat Completions paths, and a first local route-proxy module now forwards local HTTP API requests to saved API configs with a real saved-key streaming request verified through the development origin, a visible streaming-client usage example, local named proxy profiles with secret-free import/export, sanitized in-memory request logging, hardened request-header and auth-query forwarding before provider fetch, a proposed durable diagnostics model and retention policy, pure durable diagnostics guard helpers with tests, an opt-in durable diagnostics storage adapter with local temp-dir tests, focused retention-trigger tests for durable diagnostics storage, Electron IPC/preload/renderer transport plus minimal UI controls for opt-in durable diagnostics management, opt-in sanitized runtime append for durable route-proxy diagnostics, Electron CDP UI smoke for durable diagnostics controls, a clear/read race fix for diagnostics files removed while renderer reads are in flight, a minimal cc-switch-style failover/circuit-breaker route proxy slice with ordered fallback targets, network/5xx retries, HTTP 4xx non-retry smoke coverage, HTTP 5xx failover smoke coverage, target health display, opt-in durable target-health transition entries with dedicated diagnostics-list rendering, persisted per-profile failover tuning with isolated CDP UI smoke verification, deterministic real saved-key failover verification through agnes and nvidia backup targets, a fixed route-proxy layout that lets the workbench scroll the full module instead of clipping the usage area, an internally scrollable API config list so large config sets are reachable without being clipped, explicit weighted round-robin route-proxy routing with per-target weights, first-pass route-proxy local client adapter snippets, first-pass non-streaming plus streaming Responses-to-Chat-Completions route-proxy protocol conversion with non-streaming function-tool, tool-call, legacy function-call, structured text-format mapping, refusal and choice-text preservation, input-image URL/detail mapping, developer-role input preservation, seed passthrough, function-call-output history mapping, and streaming tool-call plus legacy function-call delta mapping, and first-pass non-streaming plus streaming Anthropic Messages-to-Chat-Completions route-proxy protocol conversion with non-streaming client-tool, tool-use, legacy function-call, refusal and choice-text preservation, tool-result history mapping, and streaming tool-use plus legacy function-call delta mapping.
+M4 core connection-testing acceptance and M5 snippets/import-export acceptance are complete, and the active product plan is now M6 request customization/provider expansion. M5 now includes first-pass generic snippets, verified CodeBuddy Code `models.json` generation with compatible-gateway placeholders for non-compatible native providers, secret-free provider/model import-export, and Electron CDP UI-smoke verification. Anthropic provider-specific connection test requests are implemented, OpenAI-compatible configs now separate provider type from endpoint mode, legacy OpenAI/Gemini/Antigravity/Grok provider ids now migrate to one `openai-compatible` provider id, sidebar provider filtering groups OpenAI-compatible providers, Anthropic and OpenAI-compatible real-key success have been verified, the multi-window localStorage consistency fix is implemented and fresh-launch verified, desktop saved-key reveal/copy/clipboard clearing has been verified in a fresh Electron window, available third-party endpoint modes have been verified with real saved keys, live fetched provider model catalogs are now persisted with visible refresh timestamps, the desktop app now has a custom taskbar/window icon and favicon matching the in-app `KeyRound` brand mark instead of the default framework icon, the left sidebar stays fixed while the right workbench scrolls, the supported-model panel is collapsed by default, detail-panel snippet copy actions are wired, model chat is now a standalone sidebar module backed by main-process IPC with default streaming responses, manual supported-path thinking mode, an OpenAI-compatible endpoint-mode selector, an internal message scrollbar for long conversations, no visible new-config toolbar action, and real saved-key streaming chat verified through 42API, agnes, and nvidia Chat Completions paths, and a first local route-proxy module now forwards local HTTP API requests to saved API configs with a real saved-key streaming request verified through the development origin, a visible streaming-client usage example, local named proxy profiles with secret-free import/export, sanitized in-memory request logging, hardened request-header and auth-query forwarding before provider fetch, a proposed durable diagnostics model and retention policy, pure durable diagnostics guard helpers with tests, an opt-in durable diagnostics storage adapter with local temp-dir tests, focused retention-trigger tests for durable diagnostics storage, Electron IPC/preload/renderer transport plus minimal UI controls for opt-in durable diagnostics management, opt-in sanitized runtime append for durable route-proxy diagnostics, Electron CDP UI smoke for durable diagnostics controls, a clear/read race fix for diagnostics files removed while renderer reads are in flight, a minimal cc-switch-style failover/circuit-breaker route proxy slice with ordered fallback targets, network/5xx retries, HTTP 4xx non-retry smoke coverage, HTTP 5xx failover smoke coverage, target health display, opt-in durable target-health transition entries with dedicated diagnostics-list rendering, persisted per-profile failover tuning with isolated CDP UI smoke verification, deterministic real saved-key failover verification through agnes and nvidia backup targets, a fixed route-proxy layout that lets the workbench scroll the full module instead of clipping the usage area, an internally scrollable API config list so large config sets are reachable without being clipped, explicit weighted round-robin route-proxy routing with per-target weights, first-pass route-proxy local client adapter snippets, first-pass non-streaming plus streaming Responses-to-Chat-Completions route-proxy protocol conversion with non-streaming function-tool, tool-call, legacy function-call, structured text-format mapping, refusal and choice-text preservation, input-image URL/detail mapping, developer-role input preservation, seed passthrough, function-call-output history mapping, and streaming tool-call plus legacy function-call delta mapping, and first-pass non-streaming plus streaming Anthropic Messages-to-Chat-Completions route-proxy protocol conversion with non-streaming client-tool, tool-use, legacy function-call, refusal and choice-text preservation, tool-result history mapping, and streaming tool-use plus legacy function-call delta mapping.
 
 The latest sessions verified standalone Anthropic Messages and forced OpenAI Responses chat with real saved keys while thinking remained manually disabled, added a local mock SSE endpoint to prove assistant text updates incrementally during streaming, verified real saved-key text and image attachment chat requests through agnes, diagnosed official OpenAI model fetching through the local proxy path, fixed official OpenAI Responses connection-test payloads to respect the current `max_output_tokens` minimum, refreshed generated Claude Code/Codex snippets against current public docs, confirmed a low-frequency official OpenAI Responses connection-test success, fixed new-config provider switching so OpenAI-compatible configs no longer retain the Anthropic default Base URL, fixed the one-item config list stretch layout bug, extracted the route-proxy forwarding runtime into a reusable controller, added pure local HTTP 4xx non-retry smoke coverage, added pure local HTTP 5xx failover smoke coverage, defined the route-proxy durable diagnostics sanitized model and retention policy without enabling app disk writes, added pure route-proxy diagnostics guard helpers with tests, added an opt-in route-proxy diagnostics storage adapter, wired that adapter to Electron IPC, preload, renderer transport, and minimal UI controls, wired sanitized route-proxy runtime append behind the opt-in store, added store-level retention-trigger coverage for startup-open, daily rollover, and every 100 appends, fixed diagnostics reads to tolerate files deleted during clear, serialized diagnostics store file mutations so clear cannot race with an in-flight append, added runtime flush coverage proving pending diagnostics writes are awaited before clear can continue, verified the durable diagnostics controls in a temporary Electron CDP UI smoke, hardened route-proxy request-header forwarding with pure local coverage, stripped known auth query parameters from upstream route-proxy URLs, confirmed the Electron `net.fetch` local-success path with CDP, wired route-proxy profiles into secret-free template import/export, added focused import-helper coverage for route-proxy profile target remapping, extracted route-proxy target health snapshot helpers with deterministic local coverage, fixed route-proxy cooldown failback so recovered higher-priority targets are selected again after cooldown expires, and added pure local network-error failover coverage with request-log secret redaction checks.
 
 Most recent connection-testing work now plans the Test Center enabled-config batch test before execution, runs the sequential batch through a testable execution helper, and has focused coverage proving a soft stop prevents the next configuration from starting after the current target finishes, a cancellation observed during target-start handling prevents the current provider request from launching, and an individual target failure is counted while the next target still runs. Disabled configs are ignored, enabled configs with missing provider definitions are skipped without making requests, skipped counts are reported in the batch summary, and connection-test hardening now redacts plaintext keys, encrypted key ciphertext, key previews, generic auth key-value fields, OAuth/session credential fields, non-Bearer Authorization header values, cookie and proxy credential fields, request-endpoint URL userinfo, auth query parameters, URL userinfo embedded in arbitrary error text, and known secret values left in remaining endpoint text from persisted failures while covering readable 404/429 failures, AbortError-to-timeout mapping for renderer fetch and desktop transport paths, renderer-side sanitization of failed desktop transport response details, thrown desktop transport errors, non-Error thrown fetch failures, the desktop-transport missing-key guard that prevents a main-process/provider call without a saved secret, the no-auth desktop transport path for local providers that intentionally do not use an API key, the renderer fetch-path guard that records unavailable secret storage before any provider request is sent, sanitized secret decryption failures before persistence, bounded sanitized HTTP failure details for oversized provider responses, bounded sanitized desktop transport failure details for oversized transport responses, and unreadable provider response bodies still preserving the original HTTP failure result. Model-fetch transport results, thrown Error messages, and non-Error thrown values now have defensive renderer-side sanitization or generic collapse before UI use. Recent UI work also fixed Test Center and selected-config test history timestamps so stored UTC ISO values display in the user's local timezone instead of appearing 8 hours behind.
 
-The latest sessions added focused local route-proxy coverage for converted Responses multimodal request input, proving `input_text` and `input_image` parts are forwarded as Chat Completions `text` and `image_url` parts while unsupported file parts are dropped, synchronized the npm lockfile so dependency installation and `npm ci --dry-run` no longer fail on missing optional `@emnapi` entries, and added Settings-page runtime/storage-source visibility so users can tell whether the current window is reading development-origin or production-origin localStorage, which app and Electron runtime versions are active, which sanitized page URL is active, which main config localStorage key and schema version are used, which separate route-proxy profile localStorage key and schema version are used, which Electron userData directory backs the window, and how many main configs, provider templates, provider models, and route-proxy profiles are visible in the current workspace. The same Settings inventory now refreshes when route-proxy profile storage changes through import, Route Proxy save/delete, or a same-origin `storage` event from another window, and it now summarizes usable, stale, and degraded route-proxy profile counts without exposing profile names or config ids. Recent route-proxy sessions added local conversion support and coverage for Responses function tools, `tool_choice`, `parallel_tool_calls`, non-streaming upstream Chat Completions tool calls converted back into Responses `function_call` output items, legacy non-streaming upstream `message.function_call` output converted back into Responses `function_call` items, Responses `text.format` JSON schema/object output constraints converted into upstream Chat Completions `response_format`, and Responses `function_call` plus `function_call_output` history converted into Chat Completions assistant `tool_calls` and `tool` role messages. The same local conversion pass added Anthropic client tool conversion, Anthropic `tool_choice` conversion, `disable_parallel_tool_use` mapping, non-streaming upstream Chat Completions tool calls converted back into Anthropic `tool_use` content blocks, legacy non-streaming upstream `message.function_call` output converted back into Anthropic `tool_use` content blocks, and Anthropic `tool_use` plus `tool_result` history converted into Chat Completions assistant `tool_calls` and `tool` role messages. The newest route-proxy pass added first-pass streaming Chat Completions tool-call delta conversion into Responses function-call SSE events and Anthropic tool-use SSE events with pure local fixtures, added pure local mixed text-before-tool streaming fixtures for converted Responses and Anthropic SSE ordering, added pure local multi-tool streaming fixtures proving indexed tool-call deltas stay separated on both converted APIs, fixed mixed tool-before-text streaming ordering by closing in-progress tool outputs before later text output begins, added legacy Chat Completions `delta.function_call` streaming conversion fixtures for both converted APIs, preserved upstream Chat Completions `refusal` text for converted non-streaming plus streaming Responses and Anthropic Messages clients, preserved `refusal` fields embedded in array content parts, added non-streaming `choices[0].text` fallback for both converted clients, maps Responses `input_image.image_url` object values to Chat Completions image URLs while forwarding only `url` and `detail`, preserves sibling `input_image.detail` for string image URLs while keeping object-level detail authoritative, preserves Responses `developer` input messages when converting to upstream Chat Completions, and now passes Responses `seed` through to upstream Chat Completions requests.
+The latest sessions added focused local route-proxy coverage for converted Responses multimodal request input, proving `input_text` and `input_image` parts are forwarded as Chat Completions `text` and `image_url` parts while unsupported file parts are dropped, synchronized the npm lockfile so dependency installation and `npm ci --dry-run` no longer fail on missing optional `@emnapi` entries, and added Settings-page runtime/storage-source visibility so users can tell whether the current window is reading development-origin or production-origin localStorage, which app and Electron runtime versions are active, which sanitized page URL is active, which main config localStorage key and schema version are used, which separate route-proxy profile localStorage key and schema version are used, which Electron userData directory backs the window, and how many main configs, provider templates, provider models, and route-proxy profiles are visible in the current workspace. The same Settings inventory now refreshes when route-proxy profile storage changes through import, Route Proxy save/delete, or a same-origin `storage` event from another window, and it now summarizes usable, stale, and degraded route-proxy profile counts without exposing profile names or config ids. Recent route-proxy sessions added local conversion support and coverage for Responses function tools, `tool_choice`, `parallel_tool_calls`, non-streaming upstream Chat Completions tool calls converted back into Responses `function_call` output items, legacy non-streaming upstream `message.function_call` output converted back into Responses `function_call` items, Responses `text.format` JSON schema/object output constraints converted into upstream Chat Completions `response_format`, and Responses `function_call` plus `function_call_output` history converted into Chat Completions assistant `tool_calls` and `tool` role messages. The same local conversion pass added Anthropic client tool conversion, Anthropic `tool_choice` conversion, `disable_parallel_tool_use` mapping, non-streaming upstream Chat Completions tool calls converted back into Anthropic `tool_use` content blocks, legacy non-streaming upstream `message.function_call` output converted back into Anthropic `tool_use` content blocks, and Anthropic `tool_use` plus `tool_result` history converted into Chat Completions assistant `tool_calls` and `tool` role messages. The newest route-proxy pass added first-pass streaming Chat Completions tool-call delta conversion into Responses function-call SSE events and Anthropic tool-use SSE events with pure local fixtures, added pure local mixed text-before-tool streaming fixtures for converted Responses and Anthropic SSE ordering, added pure local multi-tool streaming fixtures proving indexed tool-call deltas stay separated on both converted APIs, fixed mixed tool-before-text streaming ordering by closing in-progress tool outputs before later text output begins, added legacy Chat Completions `delta.function_call` streaming conversion fixtures for both converted APIs, preserved upstream Chat Completions `refusal` text for converted non-streaming plus streaming Responses and Anthropic Messages clients, preserved `refusal` fields embedded in array content parts, added non-streaming `choices[0].text` fallback for both converted clients, maps Responses `input_image.image_url` object values to Chat Completions image URLs while forwarding only `url` and `detail`, preserves sibling `input_image.detail` for string image URLs while keeping object-level detail authoritative, preserves Responses `developer` input messages when converting to upstream Chat Completions, passes Responses `seed` through to upstream Chat Completions requests, preserves multiple non-streaming upstream Chat Completions choices when converting back into Responses output items or Anthropic text content blocks, covers generated fallback function-call/tool-use ids staying unique across multi-choice conversions, covers explicit upstream `tool_calls` ids being preserved across multi-choice conversions, covers non-streaming mixed assistant text plus tool calls preserving text-before-tool output order, covers multiple non-streaming tool calls from one upstream choice preserving order for both converted clients, and derives Anthropic non-streaming `stop_reason` from all upstream choices so later tool-call choices return `tool_use`.
 
 ## Current State
 
@@ -55,7 +55,7 @@ The latest sessions added focused local route-proxy coverage for converted Respo
 - The route proxy usage panel now generates first-pass local client adapter snippets for OpenAI SDK Chat Completions, Codex Responses, and Claude Code Anthropic Messages. These snippets point clients at the local Base URL and use only a dummy local proxy API key because the main process still injects the saved upstream credential.
 - The route proxy runtime now supports first-pass non-streaming and streaming protocol conversion from local OpenAI Responses requests to upstream Chat Completions requests for OpenAI-compatible targets that are not Responses-native. The conversion maps `instructions`, `input`, `model`, and `max_output_tokens` into Chat Completions fields, forwards to `/chat/completions`, converts successful Chat Completions JSON back into a Responses-shaped JSON with `output_text`, and bridges Chat Completions SSE deltas into Responses SSE events. Native Responses targets remain pass-through.
 - The route proxy runtime now supports first-pass non-streaming and streaming protocol conversion from local Anthropic Messages requests to upstream Chat Completions requests for OpenAI-compatible targets. The conversion maps `system`, `messages`, text and base64/url image content parts, `model`, `max_tokens`, `stop_sequences`, and common sampling/user metadata into Chat Completions fields, forwards to `/chat/completions`, converts successful Chat Completions JSON back into an Anthropic Messages-shaped JSON response, and bridges Chat Completions SSE deltas into Anthropic Messages SSE events. Native Anthropic targets remain pass-through.
-- Route-proxy protocol-conversion edge coverage now includes official OpenAI auto Responses pass-through, converted Responses and Anthropic upstream HTTP error pass-through, Anthropic URL image source conversion, converted Responses and Anthropic client tool request forwarding, converted Responses `developer` input-role preservation, converted Responses `input_image.image_url` string and object request forwarding with detail preservation and object-field allowlisting, non-streaming and streaming upstream tool-call/tool-use output conversion, converted non-streaming/streaming Chat Completions refusal text preservation for Responses and Anthropic clients, converted array content-part refusal preservation, non-streaming upstream `choices[0].text` fallback for converted Responses and Anthropic clients, Responses function-call-output history conversion, Anthropic tool-use/tool-result history conversion, non-streaming and streaming Anthropic `length` finish reason to `max_tokens` stop reason mapping, non-streaming and streaming Anthropic `tool_calls` finish reason to `tool_use` stop reason mapping, Anthropic invalid JSON client errors, converted non-streaming/streaming Responses/Anthropic client auth/protocol header filtering, non-streaming plus streaming converted Responses array content-part extraction, streaming converted Anthropic array content-part extraction, bounded non-streaming converted upstream response body reads, bounded streaming converted upstream SSE event buffers, bounded accumulated Responses output text during converted streaming, bounded converted response metadata fields, and non-streaming plus streaming normalized converted usage fields.
+- Route-proxy protocol-conversion edge coverage now includes official OpenAI auto Responses pass-through, converted Responses and Anthropic upstream HTTP error pass-through, Anthropic URL image source conversion, converted Responses and Anthropic client tool request forwarding, converted Responses `developer` input-role preservation, converted Responses `input_image.image_url` string and object request forwarding with detail preservation and object-field allowlisting, non-streaming and streaming upstream tool-call/tool-use output conversion, converted non-streaming/streaming Chat Completions refusal text preservation for Responses and Anthropic clients, converted array content-part refusal preservation, non-streaming upstream `choices[0].text` fallback for converted Responses and Anthropic clients, converted non-streaming upstream multi-choice preservation for Responses and Anthropic clients, generated fallback function-call/tool-use id uniqueness across multi-choice conversions, explicit upstream `tool_calls` id preservation across multi-choice conversions, non-streaming mixed text-plus-tool output ordering for Responses and Anthropic clients, non-streaming same-choice multi-tool output ordering for Responses and Anthropic clients, non-streaming Anthropic `stop_reason` derivation across all upstream choices, Responses function-call-output history conversion, Anthropic tool-use/tool-result history conversion, non-streaming and streaming Anthropic `length` finish reason to `max_tokens` stop reason mapping, non-streaming and streaming Anthropic `tool_calls` finish reason to `tool_use` stop reason mapping, Anthropic invalid JSON client errors, converted non-streaming/streaming Responses/Anthropic client auth/protocol header filtering, non-streaming plus streaming converted Responses array content-part extraction, streaming converted Anthropic array content-part extraction, bounded non-streaming converted upstream response body reads, bounded streaming converted upstream SSE event buffers, bounded accumulated Responses output text during converted streaming, bounded converted response metadata fields, and non-streaming plus streaming normalized converted usage fields.
 - Real saved-key route proxy verification now confirms:
   - `42API` as the primary target returns HTTP 200 for `/v1/models`, so no natural failover occurs for that healthy request.
   - A deterministic network-failure primary target fails over to the real saved-key `agnes` target, which returns HTTP 200 for `/v1/models`.
@@ -85,7 +85,7 @@ The latest sessions added focused local route-proxy coverage for converted Respo
 - The app can generate Claude Code, Codex, and CodeBuddy config snippets for a selected provider model.
 - Generated Claude Code snippets now choose `ANTHROPIC_AUTH_TOKEN` for bearer-token gateways and `ANTHROPIC_API_KEY` for API-key-header providers.
 - Generated Codex snippets now use custom provider `wire_api = "responses"`, matching current Codex public configuration docs.
-- Generated CodeBuddy snippets remain a clearly labeled generic reference template because no verifiable public local provider config schema was found.
+- Generated CodeBuddy snippets now use the verified public CodeBuddy Code `models.json` schema, writing `.codebuddy/models.json` with `models`, `availableModels`, complete Chat Completions `url`, environment-variable `apiKey` references, and capability booleans. Non-compatible native providers such as Anthropic now show a compatible-gateway URL placeholder instead of a misleading native Base URL plus `/chat/completions`.
 - The app now uses local custom icon assets for the Windows taskbar/window icon and browser favicon, matching the in-app `KeyRound` brand mark.
 - Sidebar navigation now switches between configuration management, test center, provider templates, security center, and settings status views.
 - Anthropic connection tests now use the Anthropic Messages API request shape instead of the OpenAI-compatible chat completions route.
@@ -6152,52 +6152,410 @@ vidia config.
   - Re-run `npm run build` and `npm test` after the next code change.
   - Continue the Next Tasks section below.
 
+2026-07-09 Route-proxy Responses multi-choice preservation:
+
+- Completed work:
+  - Updated converted non-streaming Chat Completions-to-Responses handling so multiple upstream `choices` are preserved instead of only the first choice.
+  - Added ordered Responses message output items for each upstream text choice and joined the converted `output_text` with newline separators.
+  - Kept the existing empty-output fallback and single-message streaming Responses path unchanged.
+  - Added pure local route-proxy coverage with a mock upstream returning two Chat Completions choices.
+  - No external provider API calls were made.
+- Changed files:
+  - `docs/DEVELOPMENT_PROGRESS.md`
+  - `electron/routeProxyServer.cjs`
+  - `src/services/routeProxyServer.test.ts`
+- Verification:
+  - `node --check electron\routeProxyServer.cjs`: passed.
+  - `npm test -- src/services/routeProxyServer.test.ts`: passed. 1 test file, 70 tests.
+  - `npm test`: passed. 18 test files, 218 tests.
+  - `npm run build`: passed.
+  - `rg -n "console\\." src electron scripts`: no matches. The command returned exit code 1 because ripgrep found no matches.
+  - No Electron CDP smoke was run because this was pure route-proxy protocol-conversion work.
+  - No external API calls were made.
+- Current blockers:
+  - No blocker remains for non-streaming converted Responses multi-choice preservation.
+  - Forced official OpenAI `responses` and `chat-completions` 2xx completion verification remains pending and should be done later only with explicit low-frequency intent.
+  - Broader provider-specific protocol variations should expand only when a concrete compatibility behavior is defined.
+- Exact next tasks:
+  - Continue M4 only with concrete connection-testing or route-proxy compatibility work.
+  - Add more protocol-conversion edge fixtures only when a specific compatibility behavior is defined.
+  - Re-run `npm run build` and `npm test` after the next code change.
+  - Continue the Next Tasks section below.
+
+2026-07-09 Route-proxy Anthropic multi-choice preservation:
+
+- Completed work:
+  - Updated converted non-streaming Chat Completions-to-Anthropic Messages handling so multiple upstream `choices` are preserved instead of only the first choice.
+  - Added ordered Anthropic text content blocks for each upstream text choice while keeping the existing empty-output fallback.
+  - Added fallback tool-use id offsets so multi-choice converted Anthropic tool-use blocks do not reuse generated ids when upstream tool calls omit ids.
+  - Added pure local route-proxy coverage with a mock upstream returning two Chat Completions choices for a local Anthropic Messages request.
+  - No external provider API calls were made.
+- Changed files:
+  - `docs/DEVELOPMENT_PROGRESS.md`
+  - `electron/routeProxyServer.cjs`
+  - `src/services/routeProxyServer.test.ts`
+- Verification:
+  - `node --check electron\routeProxyServer.cjs`: passed.
+  - `npm test -- src/services/routeProxyServer.test.ts`: passed. 1 test file, 71 tests.
+  - `npm test`: passed. 18 test files, 219 tests.
+  - `npm run build`: passed.
+  - `rg -n "console\\." src electron scripts`: no matches. The command returned exit code 1 because ripgrep found no matches.
+  - No Electron CDP smoke was run because this was pure route-proxy protocol-conversion work.
+  - No external API calls were made.
+- Current blockers:
+  - No blocker remains for non-streaming converted Anthropic Messages multi-choice preservation.
+  - Forced official OpenAI `responses` and `chat-completions` 2xx completion verification remains pending and should be done later only with explicit low-frequency intent.
+  - Broader provider-specific protocol variations should expand only when a concrete compatibility behavior is defined.
+- Exact next tasks:
+  - Continue M4 only with concrete connection-testing or route-proxy compatibility work.
+  - Add more protocol-conversion edge fixtures only when a specific compatibility behavior is defined.
+  - Re-run `npm run build` and `npm test` after the next code change.
+  - Continue the Next Tasks section below.
+
+2026-07-09 Route-proxy multi-choice generated tool id coverage:
+
+- Completed work:
+  - Added pure local Responses coverage for multiple upstream legacy `message.function_call` choices without explicit ids, proving generated `call_0` and `call_1` ids remain unique.
+  - Added pure local Anthropic Messages coverage for multiple upstream legacy `message.function_call` choices without explicit ids, proving generated `toolu_0` and `toolu_1` ids remain unique.
+  - Confirmed the existing multi-choice conversion helpers already handled the behavior; no runtime code changes were needed in this session.
+  - No external provider API calls were made.
+- Changed files:
+  - `docs/DEVELOPMENT_PROGRESS.md`
+  - `src/services/routeProxyServer.test.ts`
+- Verification:
+  - `npm test -- src/services/routeProxyServer.test.ts`: passed. 1 test file, 73 tests.
+  - `node --check electron\routeProxyServer.cjs`: passed.
+  - `npm test`: passed. 18 test files, 221 tests.
+  - `npm run build`: passed.
+  - `rg -n "console\\." src electron scripts`: no matches. The command returned exit code 1 because ripgrep found no matches.
+  - No Electron CDP smoke was run because this was pure route-proxy protocol-conversion test coverage.
+  - No external API calls were made.
+- Current blockers:
+  - No blocker remains for generated fallback function-call/tool-use id uniqueness across non-streaming multi-choice conversions.
+  - Forced official OpenAI `responses` and `chat-completions` 2xx completion verification remains pending and should be done later only with explicit low-frequency intent.
+  - Broader provider-specific protocol variations should expand only when a concrete compatibility behavior is defined.
+- Exact next tasks:
+  - Continue M4 only with concrete connection-testing or route-proxy compatibility work.
+  - Add more protocol-conversion edge fixtures only when a specific compatibility behavior is defined.
+  - Re-run `npm run build` and `npm test` after the next code change.
+  - Continue the Next Tasks section below.
+
+2026-07-09 Route-proxy multi-choice explicit tool id coverage:
+
+- Completed work:
+  - Added pure local Responses coverage for multiple upstream modern `message.tool_calls` choices with explicit ids, proving provider `tool_calls.id` values are preserved as Responses `call_id` values.
+  - Added pure local Anthropic Messages coverage for multiple upstream modern `message.tool_calls` choices with explicit ids, proving provider `tool_calls.id` values are preserved as Anthropic `tool_use.id` values.
+  - Confirmed the existing multi-choice conversion helpers already handled the behavior; no runtime code changes were needed in this session.
+  - No external provider API calls were made.
+- Changed files:
+  - `docs/DEVELOPMENT_PROGRESS.md`
+  - `src/services/routeProxyServer.test.ts`
+- Verification:
+  - `npm test -- src/services/routeProxyServer.test.ts`: first run had one unrelated local temp-port timeout in an existing streaming refusal fixture (`connect ETIMEDOUT 127.0.0.1:2048`); rerun passed with 1 test file, 75 tests.
+  - `node --check electron\routeProxyServer.cjs`: passed.
+  - `npm test`: passed. 18 test files, 223 tests.
+  - `npm run build`: passed.
+  - `rg -n "console\\." src electron scripts`: no matches. The command returned exit code 1 because ripgrep found no matches.
+  - No Electron CDP smoke was run because this was pure route-proxy protocol-conversion test coverage.
+  - No external API calls were made.
+- Current blockers:
+  - No blocker remains for explicit upstream `tool_calls` id preservation across non-streaming multi-choice conversions.
+  - Forced official OpenAI `responses` and `chat-completions` 2xx completion verification remains pending and should be done later only with explicit low-frequency intent.
+  - Broader provider-specific protocol variations should expand only when a concrete compatibility behavior is defined.
+- Exact next tasks:
+  - Continue M4 only with concrete connection-testing or route-proxy compatibility work.
+  - Add more protocol-conversion edge fixtures only when a specific compatibility behavior is defined.
+  - Re-run `npm run build` and `npm test` after the next code change.
+  - Continue the Next Tasks section below.
+
+2026-07-09 Route-proxy non-streaming mixed text-tool coverage:
+
+- Completed work:
+  - Added pure local Responses coverage for an upstream Chat Completions message that contains both assistant text and `tool_calls`, proving the converted Responses output keeps the message item before the function-call item and preserves `output_text`.
+  - Added pure local Anthropic Messages coverage for an upstream Chat Completions message that contains both assistant text and `tool_calls`, proving the converted Anthropic content keeps the text block before the `tool_use` block.
+  - Confirmed the existing conversion helpers already handled the behavior; no runtime code changes were needed in this session.
+  - No external provider API calls were made.
+- Changed files:
+  - `docs/DEVELOPMENT_PROGRESS.md`
+  - `src/services/routeProxyServer.test.ts`
+- Verification:
+  - `npm test -- src/services/routeProxyServer.test.ts`: passed. 1 test file, 77 tests.
+  - `node --check electron\routeProxyServer.cjs`: passed.
+  - `npm test`: passed. 18 test files, 225 tests.
+  - `npm run build`: passed.
+  - `rg -n "console\\." src electron scripts`: no matches. The command returned exit code 1 because ripgrep found no matches.
+  - No Electron CDP smoke was run because this was pure route-proxy protocol-conversion test coverage.
+  - No external API calls were made.
+- Current blockers:
+  - No blocker remains for non-streaming mixed assistant text plus tool-call output ordering.
+  - Forced official OpenAI `responses` and `chat-completions` 2xx completion verification remains pending and should be done later only with explicit low-frequency intent.
+  - Broader provider-specific protocol variations should expand only when a concrete compatibility behavior is defined.
+- Exact next tasks:
+  - Continue M4 only with concrete connection-testing or route-proxy compatibility work.
+  - Add more protocol-conversion edge fixtures only when a specific compatibility behavior is defined.
+  - Re-run `npm run build` and `npm test` after the next code change.
+  - Continue the Next Tasks section below.
+
+2026-07-09 Route-proxy same-choice multi-tool coverage:
+
+- Completed work:
+  - Added pure local Responses coverage for one upstream Chat Completions choice containing multiple `tool_calls`, proving converted Responses function-call output items preserve upstream order and ids.
+  - Added pure local Anthropic Messages coverage for one upstream Chat Completions choice containing multiple `tool_calls`, proving converted Anthropic `tool_use` content blocks preserve upstream order and ids.
+  - Confirmed the existing conversion helpers already handled the behavior; no runtime code changes were needed in this session.
+  - No external provider API calls were made.
+- Changed files:
+  - `docs/DEVELOPMENT_PROGRESS.md`
+  - `src/services/routeProxyServer.test.ts`
+- Verification:
+  - `npm test -- src/services/routeProxyServer.test.ts`: passed. 1 test file, 79 tests.
+  - `node --check electron\routeProxyServer.cjs`: passed.
+  - `npm test`: passed. 18 test files, 227 tests.
+  - `npm run build`: passed. Vite/Rolldown also emitted a plugin timing advisory for `rolldown:vite-resolve`; the build completed successfully.
+  - `rg -n "console\\." src electron scripts`: no matches. The command returned exit code 1 because ripgrep found no matches.
+  - No Electron CDP smoke was run because this was pure route-proxy protocol-conversion test coverage.
+  - No external API calls were made.
+- Current blockers:
+  - No blocker remains for non-streaming same-choice multi-tool output ordering.
+  - Forced official OpenAI `responses` and `chat-completions` 2xx completion verification remains pending and should be done later only with explicit low-frequency intent.
+  - Broader provider-specific protocol variations should expand only when a concrete compatibility behavior is defined.
+- Exact next tasks:
+  - Continue M4 only with concrete connection-testing or route-proxy compatibility work.
+  - Add more protocol-conversion edge fixtures only when a specific compatibility behavior is defined.
+  - Re-run `npm run build` and `npm test` after the next code change.
+  - Continue the Next Tasks section below.
+
+2026-07-09 Route-proxy Anthropic multi-choice stop reason derivation:
+
+- Completed work:
+  - Updated non-streaming Chat-Completions-to-Anthropic-Messages conversion so the top-level Anthropic `stop_reason` is derived from all upstream `choices` instead of only the first one.
+  - Made tool/function-call finish reasons win across multi-choice outputs, so a later tool-call choice now returns `stop_reason: "tool_use"` when the converted content contains a `tool_use` block.
+  - Preserved `max_tokens` when any upstream choice finishes with `length` and no tool-use choice is present; ordinary or unknown finish reasons still fall back to `end_turn`.
+  - Added pure local route-proxy coverage for a text first choice followed by a later upstream tool-call choice.
+  - No external provider API calls were made.
+- Changed files:
+  - `docs/DEVELOPMENT_PROGRESS.md`
+  - `electron/routeProxyServer.cjs`
+  - `src/services/routeProxyServer.test.ts`
+- Verification:
+  - `node --check electron\routeProxyServer.cjs`: passed.
+  - `npm test -- src/services/routeProxyServer.test.ts`: passed. 1 test file, 80 tests.
+  - `npm test`: passed. 18 test files, 228 tests.
+  - `npm run build`: passed.
+  - `rg -n "console\\." src electron scripts`: no matches. The command returned exit code 1 because ripgrep found no matches.
+  - No Electron CDP smoke was run because this was pure route-proxy protocol-conversion work.
+  - No external API calls were made.
+- Current blockers:
+  - No blocker remains for Anthropic multi-choice `stop_reason` derivation.
+  - Forced official OpenAI `responses` and `chat-completions` 2xx completion verification remains pending and should be done later only with explicit low-frequency intent.
+  - Broader provider-specific protocol variations should expand only when a concrete compatibility behavior is defined.
+- Exact next tasks:
+  - Continue M4 only with concrete connection-testing or route-proxy compatibility work.
+  - Add more protocol-conversion edge fixtures only when a specific compatibility behavior is defined.
+  - Re-run `npm run build` and `npm test` after the next code change.
+  - Continue the Next Tasks section below.
+
+2026-07-09 M4 closure and M5 planning:
+
+- Completed work:
+  - Marked M4 core connection-testing acceptance complete in the persistent project plan.
+  - Reclassified remaining forced official OpenAI `responses` and `chat-completions` 2xx checks as optional low-frequency verification, not blockers for M4 closure.
+  - Moved the active next step to M5 Snippets And Import/Export.
+  - Updated M5 immediate tasks to audit snippet formats, secret-free import/export coverage, CodeBuddy schema status, and build/test verification.
+  - Updated the M3 secure-storage note to reflect completed Electron secure-flow verification.
+  - No runtime code changes were made during this closure pass.
+- Changed files:
+  - `docs/DEVELOPMENT_PROGRESS.md`
+  - `docs/PROJECT_PLAN.md`
+- Verification:
+  - `npm test`: passed. 18 test files, 228 tests.
+  - `npm run build`: passed.
+  - `rg -n "console\\." src electron scripts`: no matches. The command returned exit code 1 because ripgrep found no matches.
+  - No Electron CDP smoke was run because this was planning/documentation closure work.
+  - No external API calls were made.
+- Current blockers:
+  - No blocker remains for M4 core closure.
+  - Optional forced official OpenAI endpoint-mode checks remain available for a later explicit low-frequency verification step.
+  - CodeBuddy public local provider schema remains unverified and is now tracked as an M5 snippet/template task.
+- Exact next tasks:
+  - Start M5 by auditing current snippet generator coverage against the accepted output list.
+  - Audit secret-free template export/import for main configs, provider templates, provider models, and route-proxy profiles.
+  - Keep M4 protocol-conversion and provider-specific request changes closed unless a concrete compatibility behavior is defined.
+  - Re-run `npm run build` and `npm test` after the next code change.
+  - Continue the Next Tasks section below.
+
+2026-07-09 M5 snippets and import/export first pass:
+
+- Completed work:
+  - Added a generic config snippet generator for the M5 accepted formats: `.env`, PowerShell, CMD, curl, Python OpenAI SDK, and Node.js OpenAI SDK.
+  - Made generic request snippets endpoint-mode aware for Chat Completions versus Responses, while keeping API key values masked or placeholder-only.
+  - Replaced the detail-panel single `.env` snippet panel with generic snippet tabs and a current-format copy action.
+  - Extended secret-free template export snapshots to include `providerTemplates` and `providerModels` alongside main API configs and route-proxy profiles.
+  - Extended import handling to save custom provider templates, import provider model catalogs for known providers, preserve route-proxy profile import behavior, and keep legacy config-array imports compatible.
+  - Added repository support for persisting imported custom providers with deterministic replacement by provider id.
+  - No external provider API calls were made.
+- Changed files:
+  - `docs/DEVELOPMENT_PROGRESS.md`
+  - `src/App.tsx`
+  - `src/App.test.ts`
+  - `src/domain/repositories.ts`
+  - `src/services/configSnippetGenerator.ts`
+  - `src/services/configSnippetGenerator.test.ts`
+  - `src/storage/localStorageDatabase.ts`
+  - `src/storage/localStorageDatabase.test.ts`
+  - `src/styles.css`
+- Verification:
+  - `npm test -- src/services/configSnippetGenerator.test.ts`: passed. 1 test file, 6 tests.
+  - `npm test -- src/App.test.ts`: passed. 1 test file, 44 tests.
+  - `npm test -- src/storage/localStorageDatabase.test.ts`: passed. 1 test file, 12 tests.
+  - `npm test`: passed. 19 test files, 238 tests.
+  - `npm run build`: passed.
+  - `rg -n "console\\." src electron scripts`: no matches. The command returned exit code 1 because ripgrep found no matches.
+  - No Electron CDP smoke was run because this was pure renderer/helper and localStorage repository coverage.
+  - No external API calls were made.
+- Current blockers:
+  - No blocker remains for first-pass M5 accepted generic snippet formats.
+  - No blocker remains for secret-free import/export coverage of main configs, provider templates, provider model catalogs, and route-proxy profiles.
+  - CodeBuddy public local provider schema remains unverified; keep the explicit caveat unless a verifiable public schema is found.
+  - A local UI smoke for the new snippet tabs and expanded import/export flow remains useful before marking M5 fully accepted.
+- Exact next tasks:
+  - Verify the new snippet tabs and expanded import/export flow in a local Electron UI smoke when a GUI session is available.
+  - Research/replace the generic CodeBuddy template only if a verifiable public local provider schema is available.
+  - Add focused helper coverage if the expanded import/export schema changes again.
+  - Re-run `npm run build` and `npm test` after the next code change.
+  - Continue the Next Tasks section below.
+
+2026-07-09 M5 Electron UI smoke:
+
+- Completed work:
+  - Launched the production Electron app with a temporary Chromium profile and CDP remote debugging on port 9227.
+  - Verified the generic snippet tabs render and switch correctly for `.env`, PowerShell, CMD, curl, Python OpenAI SDK, and Node.js OpenAI SDK.
+  - Verified the generic snippet copy action reports `已复制`.
+  - Verified OpenAI-compatible snippet content against the saved OpenAI-compatible sample config, including Base URL, model id, Chat Completions curl endpoint, and Python/Node OpenAI SDK calls.
+  - Verified the expanded export flow reports counts for 5 config templates, 2 provider templates, and 10 provider models without secrets.
+  - Verified a synthetic secret-free import adds one config, one custom provider template, and one provider model catalog entry; the imported config remains missing-secret with `apiKeyPreview: "未设置"` and no encrypted key.
+  - Restored the previous localStorage snapshots after the smoke and removed the temporary Electron profile directory.
+  - No external provider API calls were made.
+- Changed files:
+  - `docs/DEVELOPMENT_PROGRESS.md`
+  - `docs/PROJECT_PLAN.md`
+- Verification:
+  - Electron production CDP smoke: passed for snippet tab switching, copy status, expanded export status, synthetic import status, imported provider/model/config persistence, missing-secret import state, and localStorage restoration.
+  - Confirmed no Electron processes remained after the smoke.
+  - Confirmed `.tmp-electron-ui-smoke` was removed.
+  - No `npm test` or `npm run build` rerun was needed because this session made documentation-only changes after the previously verified code.
+  - No external API calls were made.
+- Current blockers:
+  - No blocker remains for M5 generic snippet UI smoke or expanded import/export UI smoke.
+  - CodeBuddy public local provider schema remains unverified; keep the explicit caveat unless a verifiable public schema is found.
+- Exact next tasks:
+  - Research/replace the generic CodeBuddy template only if a verifiable public local provider schema is available.
+  - Add focused helper coverage if the expanded import/export schema changes again.
+  - Re-run `npm run build` and `npm test` after the next code change.
+  - Continue the Next Tasks section below.
+
+2026-07-09 M5 CodeBuddy official models.json schema:
+
+- Completed work:
+  - Researched the public CodeBuddy documentation and found the official CodeBuddy Code `models.json` configuration guide at `https://www.codebuddy.ai/docs/cli/models`.
+  - Replaced the generic CodeBuddy provider template with a `.codebuddy/models.json` generator that matches the documented schema.
+  - Generated CodeBuddy model entries now include `id`, `name`, `vendor`, complete Chat Completions `url`, capability booleans, and an environment-variable `apiKey` reference only when the provider requires authentication.
+  - Generated CodeBuddy output now includes `availableModels` with the selected model id.
+  - Added a render-safe missing-Base-URL placeholder fallback so custom provider/model rows without a Base URL do not break the coding-tool panel.
+  - Added focused coverage for the authenticated OpenAI-compatible path, the no-auth local provider path, and the missing-Base-URL placeholder path.
+  - No external provider API calls were made; only public documentation pages were fetched.
+- Changed files:
+  - `docs/DEVELOPMENT_PROGRESS.md`
+  - `docs/PROJECT_PLAN.md`
+  - `src/services/codingToolConfigGenerator.ts`
+  - `src/services/codingToolConfigGenerator.test.ts`
+- Verification:
+  - `npm test -- src/services/codingToolConfigGenerator.test.ts`: passed. 1 test file, 8 tests.
+  - `npm test`: passed. 19 test files, 240 tests.
+  - `npm run build`: passed.
+  - `rg -n "console\\." src electron scripts`: no matches. The command returned exit code 1 because ripgrep found no matches.
+  - No Electron CDP smoke was run because the UI surface did not change; the existing coding-tool panel consumes the generated title, filename, description, and content.
+- Current blockers:
+  - No blocker remains for CodeBuddy Code local model schema verification.
+  - Keep CodeBuddy output aligned with the public docs if the `models.json` schema changes later.
+- Exact next tasks:
+  - Extend focused helper coverage if the expanded import/export schema changes again.
+  - If route-proxy local adapter snippets change, extend helper coverage and run a local UI smoke before real-key verification.
+  - Keep M4 protocol-conversion and provider-specific request changes closed unless a concrete compatibility behavior is defined.
+ - Re-run `npm run build` and `npm test` after the next code change.
+ - Continue the Next Tasks section below.
+
+2026-07-09 M5 CodeBuddy UI smoke and closure:
+
+- Completed work:
+  - Ran a production Electron CDP UI smoke for the CodeBuddy tool tab after the official `models.json` generator change.
+  - Verified the Anthropic default config shows `.codebuddy/models.json`, `CODEBUDDY_MODEL_API_KEY`, and `<OPENAI_COMPATIBLE_CHAT_COMPLETIONS_URL>` instead of a misleading `api.anthropic.com/v1/chat/completions` URL.
+  - Verified the OpenAI-compatible sample config shows `.codebuddy/models.json`, `gpt-4.1-mini`, `https://api.openai.com/v1/chat/completions`, `OPENAI_COMPATIBLE_API_KEY`, and `availableModels`.
+  - Hardened CodeBuddy generation so non-compatible native providers use a compatible-gateway placeholder, no-auth local providers omit `apiKey`, missing Base URLs stay render-safe, and OpenAI-compatible providers still get a complete Chat Completions URL.
+  - Marked M5 complete and moved the active plan to M6 request customization/provider expansion.
+  - Closed the temporary Electron instance and removed `.tmp-electron-codebuddy-smoke`.
+  - No external provider API calls were made.
+- Changed files:
+  - `docs/DEVELOPMENT_PROGRESS.md`
+  - `docs/PROJECT_PLAN.md`
+  - `src/services/codingToolConfigGenerator.ts`
+  - `src/services/codingToolConfigGenerator.test.ts`
+- Verification:
+  - `npm test -- src/services/codingToolConfigGenerator.test.ts`: passed. 1 test file, 9 tests.
+  - `npm test`: passed. 19 test files, 241 tests.
+  - `npm run build`: passed.
+  - `rg -n "console\\." src electron scripts`: no matches. The command returned exit code 1 because ripgrep found no matches.
+  - Electron production CDP smoke on port `9232`: passed for Anthropic compatible-gateway placeholder output and OpenAI-compatible concrete Chat Completions output.
+  - Confirmed no Electron processes remained after the smoke.
+  - Confirmed `.tmp-electron-codebuddy-smoke` was removed.
+- Current blockers:
+  - No blocker remains for M5 snippets/import-export acceptance.
+  - CodeBuddy native Anthropic support is intentionally not assumed; users need an OpenAI-compatible gateway URL for non-compatible native providers.
+- Exact next tasks:
+  - Start M6 by designing the custom header storage shape and validation rules.
+  - Add focused tests for header normalization, secret redaction, and secret-free export/import before wiring provider requests.
+  - Wire custom headers into connection tests and chat/model-fetch transports only after the storage and sanitization slice is covered.
+  - Re-run `npm run build` and `npm test` after the next code change.
+  - Continue the Next Tasks section below.
+
 ## Current Blockers
 
 - The sandboxed command runner cannot reliably keep background Vite/Electron GUI processes alive. For UI verification, start Vite outside the sandbox directly with `C:\Program Files\nodejs\node.exe node_modules\vite\bin\vite.js --host 127.0.0.1`, verify `5173`, then launch Electron with `VITE_DEV_SERVER_URL=http://127.0.0.1:5173/`.
 - Sandboxed `npm test` and `npm run build` can fail with Vite `spawn EPERM`; rerun them outside the sandbox when that happens.
 - The local Git repository has `origin` configured at `https://github.com/ZhaoHao0924/desk-api-config-manage`, and `main` tracks `origin/main`; push/auth was not exercised in this session.
-- A saved official `api.openai.com` config is now available, `/v1/models` succeeds, and one low-frequency official `auto` Responses connection test returned HTTP 200. Forced official `responses` and forced official `chat-completions` 2xx completion verification remains pending and should be done later only with explicit low-frequency intent.
+- No blocker remains for M4 core acceptance closure.
+- A saved official `api.openai.com` config is now available, `/v1/models` succeeds, and one low-frequency official `auto` Responses connection test returned HTTP 200. Forced official `responses` and forced official `chat-completions` 2xx completion verification is optional and should be done later only with explicit low-frequency intent.
 - If the saved official OpenAI key is the key that was pasted in chat, it should be revoked/rotated and replaced in the app.
 - Direct network/DNS access to `api.openai.com` is polluted/blocked on this machine. The user-level proxy at `127.0.0.1:10808` reaches OpenAI, and provider requests now use Electron `net.fetch` when available.
 - The standalone model chat module, streaming IPC, OpenAI-compatible Chat Completions response extraction, Anthropic Messages response extraction, Responses-compatible response extraction, mock incremental streaming, text attachment request shape, and image attachment request shape now have verification coverage.
 - The Settings view now displays runtime mode, app version, Electron version, active page origin, sanitized page URL, main localStorage database key and snapshot schema version, route-proxy profile localStorage key and snapshot schema version, Electron userData directory, and current workspace inventory counts including usable/stale/degraded route-proxy profile counts, which helps distinguish development-origin data from production `file://` origin data and from route-proxy profile snapshot data.
-- The route proxy module is now verified with a real saved-key streaming OpenAI-compatible request, local mock request logging smoke, local mock failover/circuit-breaker smoke, local mock HTTP 4xx non-retry smoke, local mock HTTP 5xx failover smoke, pure local network-error failover coverage, deterministic cooldown skip/failback coverage, deterministic real saved-key failover to `agnes` and `nvidia`, forwarded header filtering coverage, auth-query stripping coverage, an Electron loopback success smoke, unit-tested retry policy behavior, deterministic target-health snapshot helper coverage, first-pass opt-in durable target-health transition history, target-health diagnostics-list rendering, route-proxy diagnostics event filtering, a separate target-health history view, explicit weighted round-robin routing, first-pass local client adapter snippets, first-pass non-streaming plus streaming Responses-to-Chat-Completions conversion, first-pass non-streaming plus streaming Anthropic Messages-to-Chat-Completions conversion, and first-pass protocol-conversion edge fixtures for official Responses pass-through, upstream HTTP error pass-through for Responses and Anthropic, Anthropic URL images, converted Responses developer-role input preservation, converted Responses multimodal input-part request forwarding, converted Responses `input_image.image_url` object forwarding with field allowlisting, converted Responses sibling `input_image.detail` preservation for string image URLs, converted Responses function tools and non-streaming upstream tool-call output, converted Responses legacy non-streaming function-call output, converted Responses structured `text.format` JSON schema/object output request formatting, converted Responses non-streaming/streaming upstream refusal text preservation, converted Responses array content-part refusal preservation, converted Responses non-streaming upstream `choices[0].text` fallback, converted streaming Responses tool-call delta output, converted streaming Responses legacy function-call delta output, converted Anthropic custom tools and non-streaming upstream tool-use output, converted Anthropic legacy non-streaming function-call output, converted Anthropic non-streaming/streaming upstream refusal text preservation, converted Anthropic streaming array content-part refusal preservation, converted Anthropic non-streaming upstream `choices[0].text` fallback, converted streaming Anthropic tool-use delta output, converted streaming Anthropic legacy function-call delta output, converted mixed streaming text-before-tool output for Responses and Anthropic, converted mixed streaming tool-before-text output for Responses and Anthropic, converted multi-tool streaming output for Responses and Anthropic, converted Anthropic tool-use/tool-result conversation history, non-streaming and streaming Anthropic max-token stop mapping, non-streaming and streaming Anthropic tool-use stop mapping, invalid JSON errors, converted non-streaming/streaming client auth/protocol header filtering, non-streaming plus streaming converted Responses array content-part extraction, streaming converted Anthropic array content-part extraction, and converted streaming Responses usage normalization. Broader protocol-conversion edge cases can still expand as expectations are defined.
+- The route proxy module is now verified with a real saved-key streaming OpenAI-compatible request, local mock request logging smoke, local mock failover/circuit-breaker smoke, local mock HTTP 4xx non-retry smoke, local mock HTTP 5xx failover smoke, pure local network-error failover coverage, deterministic cooldown skip/failback coverage, deterministic real saved-key failover to `agnes` and `nvidia`, forwarded header filtering coverage, auth-query stripping coverage, an Electron loopback success smoke, unit-tested retry policy behavior, deterministic target-health snapshot helper coverage, first-pass opt-in durable target-health transition history, target-health diagnostics-list rendering, route-proxy diagnostics event filtering, a separate target-health history view, explicit weighted round-robin routing, first-pass local client adapter snippets, first-pass non-streaming plus streaming Responses-to-Chat-Completions conversion, first-pass non-streaming plus streaming Anthropic Messages-to-Chat-Completions conversion, and first-pass protocol-conversion edge fixtures for official Responses pass-through, upstream HTTP error pass-through for Responses and Anthropic, Anthropic URL images, converted Responses developer-role input preservation, converted Responses multimodal input-part request forwarding, converted Responses `input_image.image_url` object forwarding with field allowlisting, converted Responses sibling `input_image.detail` preservation for string image URLs, converted Responses function tools and non-streaming upstream tool-call output, converted Responses legacy non-streaming function-call output, converted Responses structured `text.format` JSON schema/object output request formatting, converted Responses non-streaming/streaming upstream refusal text preservation, converted Responses array content-part refusal preservation, converted Responses non-streaming upstream `choices[0].text` fallback, converted Responses non-streaming upstream multi-choice preservation, converted Responses generated fallback function-call id uniqueness across multi-choice output, converted Responses explicit upstream `tool_calls` id preservation across multi-choice output, converted Responses non-streaming mixed text-plus-tool output ordering, converted Responses non-streaming same-choice multi-tool output ordering, converted streaming Responses tool-call delta output, converted streaming Responses legacy function-call delta output, converted Anthropic custom tools and non-streaming upstream tool-use output, converted Anthropic legacy non-streaming function-call output, converted Anthropic non-streaming/streaming upstream refusal text preservation, converted Anthropic streaming array content-part refusal preservation, converted Anthropic non-streaming upstream `choices[0].text` fallback, converted Anthropic non-streaming upstream multi-choice preservation, converted Anthropic generated fallback tool-use id uniqueness across multi-choice output, converted Anthropic explicit upstream `tool_calls` id preservation across multi-choice output, converted Anthropic non-streaming mixed text-plus-tool content ordering, converted Anthropic non-streaming same-choice multi-tool content ordering, converted Anthropic non-streaming stop_reason derivation across all upstream choices, converted streaming Anthropic tool-use delta output, converted streaming Anthropic legacy function-call delta output, converted mixed streaming text-before-tool output for Responses and Anthropic, converted mixed streaming tool-before-text output for Responses and Anthropic, converted multi-tool streaming output for Responses and Anthropic, converted Anthropic tool-use/tool-result conversation history, non-streaming and streaming Anthropic max-token stop mapping, non-streaming and streaming Anthropic tool-use stop mapping, invalid JSON errors, converted non-streaming/streaming client auth/protocol header filtering, non-streaming plus streaming converted Responses array content-part extraction, streaming converted Anthropic array content-part extraction, and converted streaming Responses usage normalization. Broader protocol-conversion edge cases can still expand as expectations are defined.
 - Route proxy named profiles are implemented as a dedicated renderer localStorage snapshot and now participate in secret-free template import/export with focused import-helper coverage. They are still not embedded in the main repository snapshot.
 - Route proxy request logs remain in-memory by default. Durable diagnostics are opt-in: the model, retention policy, guard helpers, storage adapter, Electron IPC, preload, renderer transport, minimal UI controls, runtime append, target-health transition append, runtime flush coverage, retention trigger coverage, clear-append serialization coverage, clear-preserves-opt-in behavior, and UI smoke are complete. Entries are written only after explicit user enablement, and clearing entries no longer disables the opt-in state.
 - Gemini, Antigravity, Grok, and old OpenAI provider ids now migrate to `openai-compatible`; they no longer require separate provider-specific real-key verification beyond the shared OpenAI-compatible path.
 - Anthropic connection tests now have provider-specific request handling and one real saved-key success has been verified through a PicPi Anthropic-compatible endpoint.
 - Old M2 masked-only API key previews have no recoverable plaintext and are migrated to missing-secret state until the user re-enters each key.
-- CodeBuddy public local configuration format is not fully verified yet; the current output is a generic provider template with an explicit caveat.
+- CodeBuddy Code public local model configuration is verified against the official `models.json` guide; the current output is `.codebuddy/models.json`. Native non-OpenAI-compatible providers use a compatible-gateway placeholder because CodeBuddy `models.json` expects a Chat Completions URL.
 - Antigravity remains represented only as an OpenAI-compatible sample model placeholder; users must enter a working Base URL and model id if they use that endpoint family.
 - Additional OpenAI-compatible endpoints can be sampled as working saved keys become available, but Grok and Antigravity are not separate provider-specific verification tracks.
 
 ## Next Tasks
 
-Continue M4: connection testing hardening.
+Continue M6: Request Customization And Provider Expansion.
 
 Execution order:
 
-1. If route proxy routing, forwarding, or target-health behavior changes again, extend the pure local route-proxy server/helper smoke before using real provider keys.
-2. If route proxy forwarding or diagnostics behavior changes again, extend the pure local route-proxy server/store smoke before using real provider keys:
-   - HTTP retry/failover behavior
-   - diagnostics disabled-by-default behavior
-   - sanitized renderer reads
-   - explicit clear operations while diagnostics writes are pending
-3. If route-proxy profile import/export or routing-weight persistence behavior changes again, extend focused import-path helper coverage or run a local UI smoke before real saved-key verification.
-4. If route-proxy local adapter snippets change, extend helper coverage and run a local UI smoke before real-key verification.
-5. For additional runtime protocol conversion, start with pure local route-proxy server coverage before touching Electron UI or real provider keys:
-   - Add more protocol-conversion edge fixtures only when a specific compatibility behavior is defined
-   - Extract shared streaming conversion helpers only when another conversion target needs them
-6. For any route-proxy forwarding changes that touch Electron main-process networking, rerun the Electron loopback success smoke before using real provider keys.
-7. Keep official OpenAI calls low frequency. Official `auto` Responses 2xx is verified; if needed later, verify only one remaining official endpoint mode per user-approved step:
+1. Design the custom header storage shape and validation rules first, including secret/non-secret behavior.
+2. Add focused tests for header normalization, secret redaction, and secret-free export/import before wiring provider requests.
+3. Wire custom headers into connection tests and chat/model-fetch transports only after the storage and sanitization slice is covered.
+4. Keep CodeBuddy `models.json` output aligned with the public docs if that schema changes.
+5. If route-proxy local adapter snippets change, extend helper coverage and run a local UI smoke before real-key verification.
+6. Keep M4 protocol-conversion and provider-specific request changes closed unless a concrete compatibility behavior is defined. If route proxy routing, forwarding, diagnostics, or target-health behavior changes again, extend the pure local route-proxy server/store/helper smoke before using real provider keys.
+7. Keep official OpenAI calls low frequency. Official `auto` Responses 2xx is verified; if needed later, verify only one optional remaining official endpoint mode per user-approved step:
    - forced `responses` should route to `/v1/responses` and return 2xx
    - forced `chat-completions` should route to `/v1/chat/completions` and return 2xx
 8. Verify additional real-key OpenAI-compatible configurations opportunistically as keys become available, without tracking Grok or Antigravity as separate provider-specific paths and without high-frequency calls.
-9. Continue provider-specific request options only for APIs that are not compatible with OpenAI chat completions or OpenAI Responses.
-10. If CodeBuddy publishes a verifiable public local provider schema, replace the generic CodeBuddy template and add coverage.
-11. Re-run `npm run build` and `npm test` after the next code change.
-12. Update this file at the end of the next development session.
+9. Re-run `npm run build` and `npm test` after the next code change.
+10. Update this file at the end of the next development session.
 
 ## Required Start Protocol
 

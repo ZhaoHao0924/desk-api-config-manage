@@ -1,6 +1,6 @@
 # Project Plan
 
-Last updated: 2026-07-02
+Last updated: 2026-07-09
 
 ## 1. Product Positioning
 
@@ -74,7 +74,7 @@ If the user later requires a native Windows stack and installs .NET, reassess `.
 - Node.js OpenAI SDK
 - Claude Code configuration
 - Codex configuration
-- CodeBuddy provider template
+- CodeBuddy `models.json` configuration
 
 ### 4.5 Import And Export
 
@@ -277,7 +277,7 @@ Current result:
 - The UI masks keys by default and supports explicit reveal, hide, and copy actions.
 - Secret clipboard copies are cleared after 30 seconds when the clipboard still contains the copied key.
 - Build and unit tests pass.
-- Manual verification in a visible Electron desktop session is still needed.
+- Desktop secure-flow verification has been completed in Electron for encrypted save, reveal, copy, clipboard clearing, and main-process request paths. Repeat manual verification only after related changes.
 
 ### M4: Connection Testing
 
@@ -291,13 +291,16 @@ Acceptance:
 
 Current result:
 
+- M4 core acceptance is complete.
 - An OpenAI-compatible connection test service exists.
-- The service builds `/chat/completions` requests, handles missing keys, timeout, HTTP failures, and sanitized error messages.
+- The service builds provider-appropriate requests for OpenAI-compatible and Anthropic providers, handles missing keys, timeout, HTTP failures, and sanitized error messages.
 - Latest config status and test history are persisted through the repository abstraction.
 - Electron uses main-process connection-test IPC to avoid renderer CORS limits and avoid renderer fetch calls with decrypted keys.
 - The UI "test connection" action shows loading and compact success/failure results, then refreshes config status and recent history.
-- Unit tests cover successful tests, missing keys, sanitized failures, transport delegation, and history persistence.
-- Manual verification with real provider keys is still needed.
+- Test Center can run enabled configurations sequentially with a precomputed plan, skipped-target summaries, stop-before-next behavior, and focused helper coverage.
+- Connection-test hardening covers secret redaction, sanitized persisted endpoints/details, renderer and desktop transport sanitization, timeout mapping, missing-key guards, no-auth local-provider paths, and bounded provider error details.
+- Unit tests cover successful tests, missing keys, sanitized failures, transport delegation, history persistence, batch execution behavior, and defensive sanitization.
+- Real saved-key verification has covered Anthropic and OpenAI-compatible paths, including one low-frequency official OpenAI `auto` Responses success. Remaining forced official OpenAI endpoint-mode checks are optional low-frequency verification, not blockers for M4 closure.
 
 ### M5: Snippets And Import/Export
 
@@ -309,16 +312,44 @@ Acceptance:
 - Export templates without secrets
 - Import templates
 
+Current result:
+
+- Generic config snippets now cover `.env`, PowerShell, CMD, curl, Python OpenAI SDK, and Node.js OpenAI SDK.
+- Claude Code, Codex, and CodeBuddy configuration generators exist. CodeBuddy now uses the verified public CodeBuddy Code `models.json` schema and generates `.codebuddy/models.json` with a complete Chat Completions `url` plus environment-variable API key references for compatible providers, while non-compatible native providers use a clear compatible-gateway placeholder.
+- Secret-free export/import now covers main API configs, provider templates, provider model catalogs, and route-proxy profiles.
+- Imported custom provider templates persist in the localStorage repository, and imported provider model catalogs are saved for known providers.
+- Unit tests, production build, and Electron CDP UI smoke for the new snippet tabs, expanded import/export flow, and CodeBuddy `models.json` output pass.
+
+M5 is complete.
+
+### M6: Request Customization And Provider Expansion
+
+Goal: start Phase 2 request customization without weakening local secret handling.
+
+Acceptance:
+
+- Persist custom request headers per API configuration.
+- Keep secret custom headers encrypted or omitted from secret-free exports.
+- Inject custom headers into connection tests and chat requests only after sanitization coverage is in place.
+- Keep request logs, diagnostics, snippets, and template export/import free of secret header values.
+- Preserve existing route-proxy authentication and header filtering behavior.
+
+Current result:
+
+- Not started.
+
 ## 10. Next Step
 
-Continue M4: connection testing hardening.
+Start M6: Request Customization And Provider Expansion.
 
 Immediate tasks:
 
-1. Open a fresh Electron window and manually verify connection testing with missing keys, invalid keys, and a real working provider key.
-2. Verify the full secure flow in Electron: encrypted save, reveal, copy, clipboard clearing, and main-process test request.
-3. Improve provider-specific request options where needed, especially local providers and non-OpenAI-compatible providers.
-4. Add richer error details if compact test summaries are not enough.
-5. Later, add live provider model refresh using `/models` or provider-specific equivalents.
-6. Verify Claude Code, Codex, and CodeBuddy generated snippets against official docs as formats evolve.
-7. Keep `npm run build` and `npm test` passing.
+1. Design the custom header storage shape and validation rules first, including secret/non-secret behavior.
+2. Add focused tests for header normalization, secret redaction, and secret-free export/import before wiring provider requests.
+3. Wire custom headers into connection tests and chat/model-fetch transports only after the storage and sanitization slice is covered.
+4. Keep CodeBuddy `models.json` output aligned with the public docs if that schema changes.
+5. Keep M4 protocol-conversion and provider-specific request changes closed unless a concrete compatibility behavior is defined.
+6. Keep official OpenAI forced endpoint-mode checks low frequency and optional:
+   - forced `responses` should route to `/v1/responses` and return 2xx
+   - forced `chat-completions` should route to `/v1/chat/completions` and return 2xx
+7. Re-run `npm run build` and `npm test` after each code change.

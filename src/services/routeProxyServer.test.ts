@@ -1378,6 +1378,463 @@ describe("routeProxyServer", () => {
     }
   });
 
+  it("preserves multiple upstream chat completions choices for converted Responses requests", async () => {
+    const controller = createRouteProxyController({
+      providerFetch: async () =>
+        new Response(
+          JSON.stringify({
+            choices: [
+              {
+                finish_reason: "stop",
+                message: {
+                  content: "first converted choice",
+                  role: "assistant"
+                }
+              },
+              {
+                finish_reason: "stop",
+                message: {
+                  content: "second converted choice",
+                  role: "assistant"
+                }
+              }
+            ],
+            created: 1_788_000_001,
+            id: "chatcmpl-multi-choice",
+            model: "upstream-model"
+          }),
+          {
+            headers: {
+              "content-type": "application/json"
+            },
+            status: 200
+          }
+        )
+    });
+
+    try {
+      const target = createRouteProxyTarget("primary", "http://127.0.0.1:3001/v1");
+      const proxyPort = await getFreePort();
+      const status = await controller.start({
+        cooldownMs: 30_000,
+        failureThreshold: 1,
+        listenAddress: "127.0.0.1",
+        listenPort: proxyPort,
+        target,
+        targets: [target],
+        timeoutMs: 5_000
+      });
+      const response = await fetch(`${status.proxyUrl}v1/responses`, {
+        body: JSON.stringify({
+          input: "return two choices",
+          model: "client-model",
+          store: false
+        }),
+        headers: {
+          "content-type": "application/json"
+        },
+        method: "POST"
+      });
+      const responseJson = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(responseJson.output_text).toBe("first converted choice\nsecond converted choice");
+      expect(responseJson.output).toHaveLength(2);
+      expect(responseJson.output).toMatchObject([
+        {
+          content: [
+            {
+              text: "first converted choice",
+              type: "output_text"
+            }
+          ],
+          id: "msg_0",
+          role: "assistant",
+          type: "message"
+        },
+        {
+          content: [
+            {
+              text: "second converted choice",
+              type: "output_text"
+            }
+          ],
+          id: "msg_1",
+          role: "assistant",
+          type: "message"
+        }
+      ]);
+    } finally {
+      await controller.stop();
+    }
+  });
+
+  it("keeps generated Responses function-call ids unique across multiple upstream choices", async () => {
+    const controller = createRouteProxyController({
+      providerFetch: async () =>
+        new Response(
+          JSON.stringify({
+            choices: [
+              {
+                finish_reason: "function_call",
+                message: {
+                  function_call: {
+                    arguments: "{\"city\":\"Paris\"}",
+                    name: "lookup_weather"
+                  },
+                  role: "assistant"
+                }
+              },
+              {
+                finish_reason: "function_call",
+                message: {
+                  function_call: {
+                    arguments: "{\"city\":\"Tokyo\"}",
+                    name: "lookup_time"
+                  },
+                  role: "assistant"
+                }
+              }
+            ],
+            id: "chatcmpl-multi-function-call",
+            model: "upstream-model"
+          }),
+          {
+            headers: {
+              "content-type": "application/json"
+            },
+            status: 200
+          }
+        )
+    });
+
+    try {
+      const target = createRouteProxyTarget("primary", "http://127.0.0.1:3001/v1");
+      const proxyPort = await getFreePort();
+      const status = await controller.start({
+        cooldownMs: 30_000,
+        failureThreshold: 1,
+        listenAddress: "127.0.0.1",
+        listenPort: proxyPort,
+        target,
+        targets: [target],
+        timeoutMs: 5_000
+      });
+      const response = await fetch(`${status.proxyUrl}v1/responses`, {
+        body: JSON.stringify({
+          input: "call two tools",
+          model: "client-model",
+          store: false
+        }),
+        headers: {
+          "content-type": "application/json"
+        },
+        method: "POST"
+      });
+      const responseJson = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(responseJson.output_text).toBe("");
+      expect(responseJson.output).toEqual([
+        {
+          arguments: "{\"city\":\"Paris\"}",
+          call_id: "call_0",
+          name: "lookup_weather",
+          status: "completed",
+          type: "function_call"
+        },
+        {
+          arguments: "{\"city\":\"Tokyo\"}",
+          call_id: "call_1",
+          name: "lookup_time",
+          status: "completed",
+          type: "function_call"
+        }
+      ]);
+    } finally {
+      await controller.stop();
+    }
+  });
+
+  it("preserves explicit Responses tool-call ids across multiple upstream choices", async () => {
+    const controller = createRouteProxyController({
+      providerFetch: async () =>
+        new Response(
+          JSON.stringify({
+            choices: [
+              {
+                finish_reason: "tool_calls",
+                message: {
+                  role: "assistant",
+                  tool_calls: [
+                    {
+                      function: {
+                        arguments: "{\"city\":\"Paris\"}",
+                        name: "lookup_weather"
+                      },
+                      id: "call_weather_primary",
+                      type: "function"
+                    }
+                  ]
+                }
+              },
+              {
+                finish_reason: "tool_calls",
+                message: {
+                  role: "assistant",
+                  tool_calls: [
+                    {
+                      function: {
+                        arguments: "{\"city\":\"Tokyo\"}",
+                        name: "lookup_time"
+                      },
+                      id: "call_time_backup",
+                      type: "function"
+                    }
+                  ]
+                }
+              }
+            ],
+            id: "chatcmpl-multi-tool-call",
+            model: "upstream-model"
+          }),
+          {
+            headers: {
+              "content-type": "application/json"
+            },
+            status: 200
+          }
+        )
+    });
+
+    try {
+      const target = createRouteProxyTarget("primary", "http://127.0.0.1:3001/v1");
+      const proxyPort = await getFreePort();
+      const status = await controller.start({
+        cooldownMs: 30_000,
+        failureThreshold: 1,
+        listenAddress: "127.0.0.1",
+        listenPort: proxyPort,
+        target,
+        targets: [target],
+        timeoutMs: 5_000
+      });
+      const response = await fetch(`${status.proxyUrl}v1/responses`, {
+        body: JSON.stringify({
+          input: "call two tools",
+          model: "client-model",
+          store: false
+        }),
+        headers: {
+          "content-type": "application/json"
+        },
+        method: "POST"
+      });
+      const responseJson = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(responseJson.output).toEqual([
+        {
+          arguments: "{\"city\":\"Paris\"}",
+          call_id: "call_weather_primary",
+          name: "lookup_weather",
+          status: "completed",
+          type: "function_call"
+        },
+        {
+          arguments: "{\"city\":\"Tokyo\"}",
+          call_id: "call_time_backup",
+          name: "lookup_time",
+          status: "completed",
+          type: "function_call"
+        }
+      ]);
+    } finally {
+      await controller.stop();
+    }
+  });
+
+  it("preserves mixed Responses text and tool calls from one upstream choice", async () => {
+    const controller = createRouteProxyController({
+      providerFetch: async () =>
+        new Response(
+          JSON.stringify({
+            choices: [
+              {
+                finish_reason: "tool_calls",
+                message: {
+                  content: "I need to check the weather first.",
+                  role: "assistant",
+                  tool_calls: [
+                    {
+                      function: {
+                        arguments: "{\"city\":\"Shanghai\"}",
+                        name: "lookup_weather"
+                      },
+                      id: "call_weather",
+                      type: "function"
+                    }
+                  ]
+                }
+              }
+            ],
+            id: "chatcmpl-mixed-tool",
+            model: "upstream-model"
+          }),
+          {
+            headers: {
+              "content-type": "application/json"
+            },
+            status: 200
+          }
+        )
+    });
+
+    try {
+      const target = createRouteProxyTarget("primary", "http://127.0.0.1:3001/v1");
+      const proxyPort = await getFreePort();
+      const status = await controller.start({
+        cooldownMs: 30_000,
+        failureThreshold: 1,
+        listenAddress: "127.0.0.1",
+        listenPort: proxyPort,
+        target,
+        targets: [target],
+        timeoutMs: 5_000
+      });
+      const response = await fetch(`${status.proxyUrl}v1/responses`, {
+        body: JSON.stringify({
+          input: "weather please",
+          model: "client-model",
+          store: false
+        }),
+        headers: {
+          "content-type": "application/json"
+        },
+        method: "POST"
+      });
+      const responseJson = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(responseJson.output_text).toBe("I need to check the weather first.");
+      expect(responseJson.output).toEqual([
+        {
+          content: [
+            {
+              annotations: [],
+              text: "I need to check the weather first.",
+              type: "output_text"
+            }
+          ],
+          id: "msg_0",
+          role: "assistant",
+          status: "completed",
+          type: "message"
+        },
+        {
+          arguments: "{\"city\":\"Shanghai\"}",
+          call_id: "call_weather",
+          name: "lookup_weather",
+          status: "completed",
+          type: "function_call"
+        }
+      ]);
+    } finally {
+      await controller.stop();
+    }
+  });
+
+  it("preserves multiple Responses tool calls from one upstream choice", async () => {
+    const controller = createRouteProxyController({
+      providerFetch: async () =>
+        new Response(
+          JSON.stringify({
+            choices: [
+              {
+                finish_reason: "tool_calls",
+                message: {
+                  role: "assistant",
+                  tool_calls: [
+                    {
+                      function: {
+                        arguments: "{\"city\":\"Shanghai\"}",
+                        name: "lookup_weather"
+                      },
+                      id: "call_weather",
+                      type: "function"
+                    },
+                    {
+                      function: {
+                        arguments: "{\"timezone\":\"Asia/Shanghai\"}",
+                        name: "lookup_time"
+                      },
+                      id: "call_time",
+                      type: "function"
+                    }
+                  ]
+                }
+              }
+            ],
+            id: "chatcmpl-multi-tool-same-choice",
+            model: "upstream-model"
+          }),
+          {
+            headers: {
+              "content-type": "application/json"
+            },
+            status: 200
+          }
+        )
+    });
+
+    try {
+      const target = createRouteProxyTarget("primary", "http://127.0.0.1:3001/v1");
+      const proxyPort = await getFreePort();
+      const status = await controller.start({
+        cooldownMs: 30_000,
+        failureThreshold: 1,
+        listenAddress: "127.0.0.1",
+        listenPort: proxyPort,
+        target,
+        targets: [target],
+        timeoutMs: 5_000
+      });
+      const response = await fetch(`${status.proxyUrl}v1/responses`, {
+        body: JSON.stringify({
+          input: "need weather and time",
+          model: "client-model",
+          store: false
+        }),
+        headers: {
+          "content-type": "application/json"
+        },
+        method: "POST"
+      });
+      const responseJson = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(responseJson.output_text).toBe("");
+      expect(responseJson.output).toEqual([
+        {
+          arguments: "{\"city\":\"Shanghai\"}",
+          call_id: "call_weather",
+          name: "lookup_weather",
+          status: "completed",
+          type: "function_call"
+        },
+        {
+          arguments: "{\"timezone\":\"Asia/Shanghai\"}",
+          call_id: "call_time",
+          name: "lookup_time",
+          status: "completed",
+          type: "function_call"
+        }
+      ]);
+    } finally {
+      await controller.stop();
+    }
+  });
+
   it("preserves local Responses developer messages for upstream chat completions", async () => {
     const fetchCalls: Array<{
       body: Record<string, unknown>;
@@ -4365,6 +4822,571 @@ describe("routeProxyServer", () => {
           targetConfigId: "primary"
         }
       ]);
+    } finally {
+      await controller.stop();
+    }
+  });
+
+  it("preserves multiple upstream chat completions choices for converted Anthropic Messages requests", async () => {
+    const controller = createRouteProxyController({
+      providerFetch: async () =>
+        new Response(
+          JSON.stringify({
+            choices: [
+              {
+                finish_reason: "stop",
+                message: {
+                  content: "first anthropic choice",
+                  role: "assistant"
+                }
+              },
+              {
+                finish_reason: "stop",
+                message: {
+                  content: "second anthropic choice",
+                  role: "assistant"
+                }
+              }
+            ],
+            id: "chatcmpl-anthropic-multi-choice",
+            model: "upstream-model"
+          }),
+          {
+            headers: {
+              "content-type": "application/json"
+            },
+            status: 200
+          }
+        )
+    });
+
+    try {
+      const target = createRouteProxyTarget("primary", "http://127.0.0.1:3001/v1");
+      const proxyPort = await getFreePort();
+      const status = await controller.start({
+        cooldownMs: 30_000,
+        failureThreshold: 1,
+        listenAddress: "127.0.0.1",
+        listenPort: proxyPort,
+        target,
+        targets: [target],
+        timeoutMs: 5_000
+      });
+      const response = await fetch(`${status.proxyUrl}v1/messages`, {
+        body: JSON.stringify({
+          max_tokens: 64,
+          messages: [
+            {
+              content: "return two choices",
+              role: "user"
+            }
+          ],
+          model: "claude-client"
+        }),
+        headers: {
+          "content-type": "application/json"
+        },
+        method: "POST"
+      });
+      const responseJson = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(responseJson.content).toEqual([
+        {
+          text: "first anthropic choice",
+          type: "text"
+        },
+        {
+          text: "second anthropic choice",
+          type: "text"
+        }
+      ]);
+      expect(responseJson).toMatchObject({
+        id: "chatcmpl-anthropic-multi-choice",
+        model: "upstream-model",
+        role: "assistant",
+        stop_reason: "end_turn",
+        stop_sequence: null,
+        type: "message"
+      });
+    } finally {
+      await controller.stop();
+    }
+  });
+
+  it("uses tool_use stop reason when a later upstream choice contains Anthropic tool use", async () => {
+    const controller = createRouteProxyController({
+      providerFetch: async () =>
+        new Response(
+          JSON.stringify({
+            choices: [
+              {
+                finish_reason: "stop",
+                message: {
+                  content: "I need one more check.",
+                  role: "assistant"
+                }
+              },
+              {
+                finish_reason: "tool_calls",
+                message: {
+                  role: "assistant",
+                  tool_calls: [
+                    {
+                      function: {
+                        arguments: "{\"city\":\"Shanghai\"}",
+                        name: "lookup_weather"
+                      },
+                      id: "call_weather",
+                      type: "function"
+                    }
+                  ]
+                }
+              }
+            ],
+            id: "chatcmpl-anthropic-later-tool-choice",
+            model: "upstream-model"
+          }),
+          {
+            headers: {
+              "content-type": "application/json"
+            },
+            status: 200
+          }
+        )
+    });
+
+    try {
+      const target = createRouteProxyTarget("primary", "http://127.0.0.1:3001/v1");
+      const proxyPort = await getFreePort();
+      const status = await controller.start({
+        cooldownMs: 30_000,
+        failureThreshold: 1,
+        listenAddress: "127.0.0.1",
+        listenPort: proxyPort,
+        target,
+        targets: [target],
+        timeoutMs: 5_000
+      });
+      const response = await fetch(`${status.proxyUrl}v1/messages`, {
+        body: JSON.stringify({
+          max_tokens: 64,
+          messages: [
+            {
+              content: "weather please",
+              role: "user"
+            }
+          ],
+          model: "claude-client"
+        }),
+        headers: {
+          "content-type": "application/json"
+        },
+        method: "POST"
+      });
+      const responseJson = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(responseJson.content).toEqual([
+        {
+          text: "I need one more check.",
+          type: "text"
+        },
+        {
+          id: "call_weather",
+          input: {
+            city: "Shanghai"
+          },
+          name: "lookup_weather",
+          type: "tool_use"
+        }
+      ]);
+      expect(responseJson.stop_reason).toBe("tool_use");
+    } finally {
+      await controller.stop();
+    }
+  });
+
+  it("keeps generated Anthropic tool-use ids unique across multiple upstream choices", async () => {
+    const controller = createRouteProxyController({
+      providerFetch: async () =>
+        new Response(
+          JSON.stringify({
+            choices: [
+              {
+                finish_reason: "function_call",
+                message: {
+                  function_call: {
+                    arguments: "{\"city\":\"Paris\"}",
+                    name: "lookup_weather"
+                  },
+                  role: "assistant"
+                }
+              },
+              {
+                finish_reason: "function_call",
+                message: {
+                  function_call: {
+                    arguments: "{\"city\":\"Tokyo\"}",
+                    name: "lookup_time"
+                  },
+                  role: "assistant"
+                }
+              }
+            ],
+            id: "chatcmpl-anthropic-multi-function-call",
+            model: "upstream-model"
+          }),
+          {
+            headers: {
+              "content-type": "application/json"
+            },
+            status: 200
+          }
+        )
+    });
+
+    try {
+      const target = createRouteProxyTarget("primary", "http://127.0.0.1:3001/v1");
+      const proxyPort = await getFreePort();
+      const status = await controller.start({
+        cooldownMs: 30_000,
+        failureThreshold: 1,
+        listenAddress: "127.0.0.1",
+        listenPort: proxyPort,
+        target,
+        targets: [target],
+        timeoutMs: 5_000
+      });
+      const response = await fetch(`${status.proxyUrl}v1/messages`, {
+        body: JSON.stringify({
+          max_tokens: 64,
+          messages: [
+            {
+              content: "call two tools",
+              role: "user"
+            }
+          ],
+          model: "claude-client"
+        }),
+        headers: {
+          "content-type": "application/json"
+        },
+        method: "POST"
+      });
+      const responseJson = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(responseJson.content).toEqual([
+        {
+          id: "toolu_0",
+          input: {
+            city: "Paris"
+          },
+          name: "lookup_weather",
+          type: "tool_use"
+        },
+        {
+          id: "toolu_1",
+          input: {
+            city: "Tokyo"
+          },
+          name: "lookup_time",
+          type: "tool_use"
+        }
+      ]);
+      expect(responseJson.stop_reason).toBe("tool_use");
+    } finally {
+      await controller.stop();
+    }
+  });
+
+  it("preserves explicit Anthropic tool-use ids across multiple upstream choices", async () => {
+    const controller = createRouteProxyController({
+      providerFetch: async () =>
+        new Response(
+          JSON.stringify({
+            choices: [
+              {
+                finish_reason: "tool_calls",
+                message: {
+                  role: "assistant",
+                  tool_calls: [
+                    {
+                      function: {
+                        arguments: "{\"city\":\"Paris\"}",
+                        name: "lookup_weather"
+                      },
+                      id: "call_weather_primary",
+                      type: "function"
+                    }
+                  ]
+                }
+              },
+              {
+                finish_reason: "tool_calls",
+                message: {
+                  role: "assistant",
+                  tool_calls: [
+                    {
+                      function: {
+                        arguments: "{\"city\":\"Tokyo\"}",
+                        name: "lookup_time"
+                      },
+                      id: "call_time_backup",
+                      type: "function"
+                    }
+                  ]
+                }
+              }
+            ],
+            id: "chatcmpl-anthropic-multi-tool-call",
+            model: "upstream-model"
+          }),
+          {
+            headers: {
+              "content-type": "application/json"
+            },
+            status: 200
+          }
+        )
+    });
+
+    try {
+      const target = createRouteProxyTarget("primary", "http://127.0.0.1:3001/v1");
+      const proxyPort = await getFreePort();
+      const status = await controller.start({
+        cooldownMs: 30_000,
+        failureThreshold: 1,
+        listenAddress: "127.0.0.1",
+        listenPort: proxyPort,
+        target,
+        targets: [target],
+        timeoutMs: 5_000
+      });
+      const response = await fetch(`${status.proxyUrl}v1/messages`, {
+        body: JSON.stringify({
+          max_tokens: 64,
+          messages: [
+            {
+              content: "call two tools",
+              role: "user"
+            }
+          ],
+          model: "claude-client"
+        }),
+        headers: {
+          "content-type": "application/json"
+        },
+        method: "POST"
+      });
+      const responseJson = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(responseJson.content).toEqual([
+        {
+          id: "call_weather_primary",
+          input: {
+            city: "Paris"
+          },
+          name: "lookup_weather",
+          type: "tool_use"
+        },
+        {
+          id: "call_time_backup",
+          input: {
+            city: "Tokyo"
+          },
+          name: "lookup_time",
+          type: "tool_use"
+        }
+      ]);
+      expect(responseJson.stop_reason).toBe("tool_use");
+    } finally {
+      await controller.stop();
+    }
+  });
+
+  it("preserves mixed Anthropic text and tool use from one upstream choice", async () => {
+    const controller = createRouteProxyController({
+      providerFetch: async () =>
+        new Response(
+          JSON.stringify({
+            choices: [
+              {
+                finish_reason: "tool_calls",
+                message: {
+                  content: "I need to check the weather first.",
+                  role: "assistant",
+                  tool_calls: [
+                    {
+                      function: {
+                        arguments: "{\"city\":\"Shanghai\"}",
+                        name: "lookup_weather"
+                      },
+                      id: "call_weather",
+                      type: "function"
+                    }
+                  ]
+                }
+              }
+            ],
+            id: "chatcmpl-anthropic-mixed-tool",
+            model: "upstream-model"
+          }),
+          {
+            headers: {
+              "content-type": "application/json"
+            },
+            status: 200
+          }
+        )
+    });
+
+    try {
+      const target = createRouteProxyTarget("primary", "http://127.0.0.1:3001/v1");
+      const proxyPort = await getFreePort();
+      const status = await controller.start({
+        cooldownMs: 30_000,
+        failureThreshold: 1,
+        listenAddress: "127.0.0.1",
+        listenPort: proxyPort,
+        target,
+        targets: [target],
+        timeoutMs: 5_000
+      });
+      const response = await fetch(`${status.proxyUrl}v1/messages`, {
+        body: JSON.stringify({
+          max_tokens: 64,
+          messages: [
+            {
+              content: "weather please",
+              role: "user"
+            }
+          ],
+          model: "claude-client"
+        }),
+        headers: {
+          "content-type": "application/json"
+        },
+        method: "POST"
+      });
+      const responseJson = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(responseJson.content).toEqual([
+        {
+          text: "I need to check the weather first.",
+          type: "text"
+        },
+        {
+          id: "call_weather",
+          input: {
+            city: "Shanghai"
+          },
+          name: "lookup_weather",
+          type: "tool_use"
+        }
+      ]);
+      expect(responseJson.stop_reason).toBe("tool_use");
+    } finally {
+      await controller.stop();
+    }
+  });
+
+  it("preserves multiple Anthropic tool-use blocks from one upstream choice", async () => {
+    const controller = createRouteProxyController({
+      providerFetch: async () =>
+        new Response(
+          JSON.stringify({
+            choices: [
+              {
+                finish_reason: "tool_calls",
+                message: {
+                  role: "assistant",
+                  tool_calls: [
+                    {
+                      function: {
+                        arguments: "{\"city\":\"Shanghai\"}",
+                        name: "lookup_weather"
+                      },
+                      id: "call_weather",
+                      type: "function"
+                    },
+                    {
+                      function: {
+                        arguments: "{\"timezone\":\"Asia/Shanghai\"}",
+                        name: "lookup_time"
+                      },
+                      id: "call_time",
+                      type: "function"
+                    }
+                  ]
+                }
+              }
+            ],
+            id: "chatcmpl-anthropic-multi-tool-same-choice",
+            model: "upstream-model"
+          }),
+          {
+            headers: {
+              "content-type": "application/json"
+            },
+            status: 200
+          }
+        )
+    });
+
+    try {
+      const target = createRouteProxyTarget("primary", "http://127.0.0.1:3001/v1");
+      const proxyPort = await getFreePort();
+      const status = await controller.start({
+        cooldownMs: 30_000,
+        failureThreshold: 1,
+        listenAddress: "127.0.0.1",
+        listenPort: proxyPort,
+        target,
+        targets: [target],
+        timeoutMs: 5_000
+      });
+      const response = await fetch(`${status.proxyUrl}v1/messages`, {
+        body: JSON.stringify({
+          max_tokens: 64,
+          messages: [
+            {
+              content: "need weather and time",
+              role: "user"
+            }
+          ],
+          model: "claude-client"
+        }),
+        headers: {
+          "content-type": "application/json"
+        },
+        method: "POST"
+      });
+      const responseJson = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(responseJson.content).toEqual([
+        {
+          id: "call_weather",
+          input: {
+            city: "Shanghai"
+          },
+          name: "lookup_weather",
+          type: "tool_use"
+        },
+        {
+          id: "call_time",
+          input: {
+            timezone: "Asia/Shanghai"
+          },
+          name: "lookup_time",
+          type: "tool_use"
+        }
+      ]);
+      expect(responseJson.stop_reason).toBe("tool_use");
     } finally {
       await controller.stop();
     }
