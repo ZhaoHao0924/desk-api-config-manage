@@ -336,20 +336,17 @@ Acceptance:
 
 Current result:
 
-- Not started.
+- M6 Request Customization is fully completed. Custom headers are securely stored, redacted in logs, and correctly injected into connection tests, model fetches, and chat transports without disrupting the route-proxy or weakening secret handling.
+- M6 Provider Expansion has been intentionally skipped per user request, as Anthropic and OpenAI-compatible endpoints cover current usage needs.
 
 ## 10. Next Step
 
-Start M6: Request Customization And Provider Expansion.
+All defined milestones (M1 through M6) have now been completed or addressed.
 
 Immediate tasks:
 
-1. Design the custom header storage shape and validation rules first, including secret/non-secret behavior.
-2. Add focused tests for header normalization, secret redaction, and secret-free export/import before wiring provider requests.
-3. Wire custom headers into connection tests and chat/model-fetch transports only after the storage and sanitization slice is covered.
-4. Keep CodeBuddy `models.json` output aligned with the public docs if that schema changes.
-5. Keep M4 protocol-conversion and provider-specific request changes closed unless a concrete compatibility behavior is defined.
-6. Keep official OpenAI forced endpoint-mode checks low frequency and optional:
-   - forced `responses` should route to `/v1/responses` and return 2xx
-   - forced `chat-completions` should route to `/v1/chat/completions` and return 2xx
-7. Re-run `npm run build` and `npm test` after each code change.
+1. Perform any final end-to-end smoke testing.
+2. Consider scoping a new phase of work or transitioning the project into maintenance mode.
+3. Keep CodeBuddy `models.json` output aligned with the public docs if that schema changes.
+4. Keep M4 protocol-conversion and provider-specific request changes closed unless a concrete compatibility behavior is defined.
+5. Re-run `npm run build` and `npm test` after each code change.

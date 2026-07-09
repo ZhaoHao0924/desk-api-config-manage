@@ -6539,8 +6539,11 @@ vidia config.
 - Current blockers:
   - No blockers for M6 custom header wiring.
 - Exact next tasks:
-  - Consider running an end-to-end smoke test of the configured custom headers functionality in a fresh Electron window.
-  - Move on to provider expansion.
+  - Perform any final end-to-end smoke testing.
+  - Consider scoping a new phase of work or transitioning the project into maintenance mode.
+  - Keep CodeBuddy `models.json` output aligned with the public docs if that schema changes.
+  - Keep M4 protocol-conversion and provider-specific request changes closed unless a concrete compatibility behavior is defined.
+  - Re-run `npm run build` and `npm test` after the next code change.
 
 ## Current Blockers
 
@@ -6565,22 +6568,15 @@ vidia config.
 
 ## Next Tasks
 
-Continue M6: Request Customization And Provider Expansion.
+M6 Request Customization is fully completed. M6 Provider Expansion has been intentionally skipped per user request, as Anthropic and OpenAI-compatible endpoints cover current usage needs. All defined milestones (M1 through M6) have now been completed or addressed.
 
-Execution order:
+Immediate tasks:
 
-1. Design the custom header storage shape and validation rules first, including secret/non-secret behavior.
-2. Add focused tests for header normalization, secret redaction, and secret-free export/import before wiring provider requests.
-3. Wire custom headers into connection tests and chat/model-fetch transports only after the storage and sanitization slice is covered.
-4. Keep CodeBuddy `models.json` output aligned with the public docs if that schema changes.
-5. If route-proxy local adapter snippets change, extend helper coverage and run a local UI smoke before real-key verification.
-6. Keep M4 protocol-conversion and provider-specific request changes closed unless a concrete compatibility behavior is defined. If route proxy routing, forwarding, diagnostics, or target-health behavior changes again, extend the pure local route-proxy server/store/helper smoke before using real provider keys.
-7. Keep official OpenAI calls low frequency. Official `auto` Responses 2xx is verified; if needed later, verify only one optional remaining official endpoint mode per user-approved step:
-   - forced `responses` should route to `/v1/responses` and return 2xx
-   - forced `chat-completions` should route to `/v1/chat/completions` and return 2xx
-8. Verify additional real-key OpenAI-compatible configurations opportunistically as keys become available, without tracking Grok or Antigravity as separate provider-specific paths and without high-frequency calls.
-9. Re-run `npm run build` and `npm test` after the next code change.
-10. Update this file at the end of the next development session.
+1. Perform any final end-to-end smoke testing.
+2. Consider scoping a new phase of work or transitioning the project into maintenance mode.
+3. Keep CodeBuddy `models.json` output aligned with the public docs if that schema changes.
+4. Keep M4 protocol-conversion and provider-specific request changes closed unless a concrete compatibility behavior is defined.
+5. Re-run `npm run build` and `npm test` after each code change.
 
 ## Required Start Protocol
 
