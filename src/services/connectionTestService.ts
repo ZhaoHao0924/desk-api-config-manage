@@ -1,6 +1,6 @@
 import type { ApiConfigRepository, TestHistoryRepository } from "../domain/repositories";
 import type { ApiConfig, ApiProvider, OpenAiEndpointMode, TestHistoryItem, TestStatus } from "../types";
-import type { ConnectionTestTransport, OpenAiCompatibleTransportResult } from "./connectionTestTransport";
+import type { ConnectionTestTransport, OpenAiCompatibleTransportResult, TransportCustomHeader } from "./connectionTestTransport";
 import type { SecretService } from "./secretService";
 
 type ConnectionTestRepository = ApiConfigRepository & TestHistoryRepository;
@@ -14,6 +14,7 @@ interface ConnectionTestOptions {
   secretService?: SecretService;
   timeoutMs?: number;
   transport?: ConnectionTestTransport;
+  customHeaders?: TransportCustomHeader[];
 }
 
 interface ConnectionTestOutcome {
@@ -463,7 +464,8 @@ export async function runConnectionTest(
         model: config.defaultModel,
         providerId: provider.id,
         providerType: provider.type,
-        timeoutMs
+        timeoutMs,
+        customHeaders: options.customHeaders
       });
       requestEndpoint = transportResult.requestEndpoint ?? requestEndpoint;
 

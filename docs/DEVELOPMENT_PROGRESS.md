@@ -6517,6 +6517,31 @@ vidia config.
   - Re-run `npm run build` and `npm test` after the next code change.
   - Continue the Next Tasks section below.
 
+2026-07-09 M6 Request Customization / Provider Expansion - Custom Header Wiring:
+
+- Completed work:
+  - Restored the uncommitted changes from the previous session via `git diff` extraction.
+  - Wired custom headers into `ProviderModelFetchRequest` and `ChatTransportRequest`.
+  - Added `customHeaders` IPC transmission in `electron/preload.cjs` for model fetch and chat.
+  - Added header resolution and merging logic to `fetchProviderModels`, `sendChatMessage` and `streamChatMessage` in `electron/main.cjs`.
+  - Updated `App.tsx` and `ChatModule.tsx` to pass the configured custom headers during connection testing, model fetching, and chat completions.
+  - Verified TypeScript compilation and all unit tests passed.
+- Changed files:
+  - `src/services/modelFetchTransport.ts`
+  - `src/services/chatTransport.ts`
+  - `src/features/chat/ChatModule.tsx`
+  - `src/App.tsx`
+  - `electron/preload.cjs`
+  - `electron/main.cjs`
+- Verification:
+  - `npm test`: passed. 20 test files, 261 tests.
+  - `npm run build`: passed.
+- Current blockers:
+  - No blockers for M6 custom header wiring.
+- Exact next tasks:
+  - Consider running an end-to-end smoke test of the configured custom headers functionality in a fresh Electron window.
+  - Move on to provider expansion.
+
 ## Current Blockers
 
 - The sandboxed command runner cannot reliably keep background Vite/Electron GUI processes alive. For UI verification, start Vite outside the sandbox directly with `C:\Program Files\nodejs\node.exe node_modules\vite\bin\vite.js --host 127.0.0.1`, verify `5173`, then launch Electron with `VITE_DEV_SERVER_URL=http://127.0.0.1:5173/`.

@@ -1,4 +1,4 @@
-import type { ApiConfig, ApiProvider, ProviderModel, TestHistoryItem } from "../types";
+import type { ApiConfig, ApiProvider, CustomHeader, ProviderModel, TestHistoryItem } from "../types";
 
 export interface ProviderRepository {
   listProviders(): Promise<ApiProvider[]>;
@@ -23,4 +23,11 @@ export interface ProviderModelRepository {
   saveProviderModels(providerId: string, models: ProviderModel[]): Promise<ProviderModel[]>;
 }
 
-export type ConfigRepository = ProviderRepository & ApiConfigRepository & TestHistoryRepository & ProviderModelRepository;
+export interface CustomHeaderRepository {
+  listCustomHeaders(configId: string): Promise<CustomHeader[]>;
+  saveCustomHeader(header: CustomHeader): Promise<CustomHeader>;
+  deleteCustomHeader(id: string): Promise<void>;
+  deleteCustomHeadersByConfigId(configId: string): Promise<void>;
+}
+
+export type ConfigRepository = ProviderRepository & ApiConfigRepository & TestHistoryRepository & ProviderModelRepository & CustomHeaderRepository;

@@ -1,3 +1,4 @@
+import type { TransportCustomHeader } from "./connectionTestTransport";
 import type { ApiProvider } from "../types";
 
 export interface ProviderModelFetchRequest {
@@ -7,6 +8,7 @@ export interface ProviderModelFetchRequest {
   encryptedApiKey?: string;
   providerType: ApiProvider["type"];
   timeoutMs?: number;
+  customHeaders?: TransportCustomHeader[];
 }
 
 export interface ProviderModelFetchResult {

@@ -344,6 +344,56 @@ function createProviderConnectionHeaders(providerType, authType, apiKey) {
   return createConnectionHeaders(authType, apiKey);
 }
 
+// Protected header names that must not be overridden by custom headers from the renderer.
+const protectedHeaderNames = new Set([
+  "authorization",
+  "x-api-key",
+  "anthropic-version",
+  "content-type",
+  "content-length",
+  "transfer-encoding",
+  "host",
+  "connection",
+  "x-goog-api-key",
+  "api-key",
+  "ocp-apim-subscription-key"
+]);
+
+function resolveTransportCustomHeaders(customHeaders) {
+  if (!Array.isArray(customHeaders) || customHeaders.length === 0) {
+    return {};
+  }
+
+  const result = {};
+
+  for (const header of customHeaders) {
+    if (!header || typeof header !== "object") {
+      continue;
+    }
+
+    const key = String(header.key ?? "").trim().toLowerCase();
+
+    if (!key || protectedHeaderNames.has(key)) {
+      continue;
+    }
+
+    if (header.isSecret && typeof header.encryptedValue === "string") {
+      try {
+        const plaintext = safeStorage.decryptString(Buffer.from(header.encryptedValue, "base64"));
+        if (plaintext) {
+          result[key] = plaintext;
+        }
+      } catch {
+        // Skip headers that cannot be decrypted.
+      }
+    } else if (!header.isSecret && typeof header.plaintextValue === "string") {
+      result[key] = header.plaintextValue;
+    }
+  }
+
+  return result;
+}
+
 const routeProxyController = createRouteProxyController({
   appendDiagnosticEntry: (entry, options) => getRouteProxyDiagnosticsStore().appendEntry(entry, options),
   assertConnectionAuthType,
@@ -997,8 +1047,10 @@ async function fetchProviderModels(request) {
 
   try {
     const requestEndpoint = buildModelListUrl(request.baseUrl, request.providerType);
+    const baseModelListHeaders = createModelListHeaders(request.providerType, request.authType, apiKey);
+    const customModelListHeadersResolved = resolveTransportCustomHeaders(request.customHeaders);
     const response = await providerFetch(requestEndpoint, {
-      headers: createModelListHeaders(request.providerType, request.authType, apiKey),
+      headers: { ...customModelListHeadersResolved, ...baseModelListHeaders },
       method: "GET",
       signal: controller.signal
     });
@@ -1057,9 +1109,11 @@ async function testOpenAiCompatibleConnection(request) {
 
   try {
     const requestEndpoint = buildConnectionTestUrl(request.baseUrl, request.providerId, request.providerType, endpointMode);
+    const baseHeaders = createProviderConnectionHeaders(request.providerType, request.authType, apiKey);
+    const customHeadersResolved = resolveTransportCustomHeaders(request.customHeaders);
     const response = await providerFetch(requestEndpoint, {
       body: createProviderConnectionBody(request.providerId, request.providerType, endpointMode, request.baseUrl, model),
-      headers: createProviderConnectionHeaders(request.providerType, request.authType, apiKey),
+      headers: { ...customHeadersResolved, ...baseHeaders },
       method: "POST",
       signal: controller.signal
     });
@@ -1107,6 +1161,8 @@ async function sendChatMessage(request) {
 
   try {
     const requestEndpoint = buildConnectionTestUrl(request.baseUrl, request.providerId, request.providerType, endpointMode);
+    const baseChatHeaders = createProviderConnectionHeaders(request.providerType, request.authType, apiKey);
+    const customChatHeadersResolved = resolveTransportCustomHeaders(request.customHeaders);
     const response = await providerFetch(requestEndpoint, {
       body: createProviderChatBody(
         request.providerId,
@@ -1118,7 +1174,7 @@ async function sendChatMessage(request) {
         false,
         request.thinkingEnabled === true
       ),
-      headers: createProviderConnectionHeaders(request.providerType, request.authType, apiKey),
+      headers: { ...customChatHeadersResolved, ...baseChatHeaders },
       method: "POST",
       signal: controller.signal
     });
@@ -1188,6 +1244,8 @@ async function streamChatMessage(webContents, request) {
 
     try {
       const requestEndpoint = buildConnectionTestUrl(request.baseUrl, request.providerId, request.providerType, endpointMode);
+      const baseStreamHeaders = createProviderConnectionHeaders(request.providerType, request.authType, apiKey);
+      const customStreamHeadersResolved = resolveTransportCustomHeaders(request.customHeaders);
       const response = await providerFetch(requestEndpoint, {
         body: createProviderChatBody(
           request.providerId,
@@ -1199,7 +1257,7 @@ async function streamChatMessage(webContents, request) {
           true,
           request.thinkingEnabled === true
         ),
-        headers: createProviderConnectionHeaders(request.providerType, request.authType, apiKey),
+        headers: { ...customStreamHeadersResolved, ...baseStreamHeaders },
         method: "POST",
         signal: controller.signal
       });

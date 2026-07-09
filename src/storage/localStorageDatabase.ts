@@ -1,7 +1,7 @@
 import { defaultConfigs, defaultProviderModels, defaultProviders, defaultTestHistory } from "../data/sampleData";
 import type { ConfigRepository } from "../domain/repositories";
 import { legacyOpenAiCompatibleProviderIds, normalizeProviderId } from "../types";
-import type { ApiConfig, ApiProvider, OpenAiEndpointMode, ProviderModel, TestHistoryItem } from "../types";
+import type { ApiConfig, ApiProvider, CustomHeader, OpenAiEndpointMode, ProviderModel, TestHistoryItem } from "../types";
 
 export interface StorageLike {
   getItem(key: string): string | null;
@@ -34,6 +34,7 @@ interface LegacyDatabaseSnapshotV1 {
 
 export const localStorageDatabaseKey = "desk-api-config-manager.database.v1";
 export const localStorageDatabaseSchemaVersion = 3;
+export const localStorageCustomHeadersKey = "desk-api-config-manager.custom-headers.v1";
 const retiredBuiltInProviderIds = new Set([
   "deepseek",
   "ollama",
@@ -334,6 +335,7 @@ export class LocalStorageConfigRepository implements ConfigRepository {
     snapshot.configs = snapshot.configs.filter((config) => config.id !== id);
     snapshot.testHistory = snapshot.testHistory.filter((item) => item.configId !== id);
     this.write(snapshot);
+    await this.deleteCustomHeadersByConfigId(id);
   }
 
   async listTestHistory(configId?: string): Promise<TestHistoryItem[]> {
@@ -352,6 +354,56 @@ export class LocalStorageConfigRepository implements ConfigRepository {
 
   reset(): void {
     this.write(cloneSnapshot(seedSnapshot));
+    this.storage.removeItem(localStorageCustomHeadersKey);
+  }
+
+  async listCustomHeaders(configId: string): Promise<CustomHeader[]> {
+    const all = this.readCustomHeaders();
+    return all.filter((h) => h.configId === configId).map((h) => ({ ...h }));
+  }
+
+  async saveCustomHeader(header: CustomHeader): Promise<CustomHeader> {
+    const all = this.readCustomHeaders();
+    const idx = all.findIndex((h) => h.id === header.id);
+    const next = { ...header };
+
+    if (idx === -1) {
+      all.push(next);
+    } else {
+      all[idx] = next;
+    }
+
+    this.writeCustomHeaders(all);
+    return { ...next };
+  }
+
+  async deleteCustomHeader(id: string): Promise<void> {
+    const all = this.readCustomHeaders().filter((h) => h.id !== id);
+    this.writeCustomHeaders(all);
+  }
+
+  async deleteCustomHeadersByConfigId(configId: string): Promise<void> {
+    const all = this.readCustomHeaders().filter((h) => h.configId !== configId);
+    this.writeCustomHeaders(all);
+  }
+
+  private readCustomHeaders(): CustomHeader[] {
+    const raw = this.storage.getItem(localStorageCustomHeadersKey);
+
+    if (!raw) {
+      return [];
+    }
+
+    try {
+      const parsed: unknown = JSON.parse(raw);
+      return Array.isArray(parsed) ? (parsed as CustomHeader[]).filter((h) => h && typeof h.id === "string") : [];
+    } catch {
+      return [];
+    }
+  }
+
+  private writeCustomHeaders(headers: CustomHeader[]): void {
+    this.storage.setItem(localStorageCustomHeadersKey, JSON.stringify(headers));
   }
 
   private ensureDatabase(): void {

@@ -1,5 +1,15 @@
 import type { ApiProvider, OpenAiEndpointMode } from "../types";
 
+/** A custom header entry passed to the main process.
+ * Non-secret headers carry plaintext value.
+ * Secret headers carry encrypted ciphertext; the main process decrypts them. */
+export interface TransportCustomHeader {
+  key: string;
+  encryptedValue?: string;
+  plaintextValue?: string;
+  isSecret: boolean;
+}
+
 export interface OpenAiCompatibleTransportRequest {
   authType: ApiProvider["authType"];
   baseUrl: string;
@@ -9,6 +19,7 @@ export interface OpenAiCompatibleTransportRequest {
   providerId: string;
   providerType: ApiProvider["type"];
   timeoutMs?: number;
+  customHeaders?: TransportCustomHeader[];
 }
 
 export interface OpenAiCompatibleTransportResult {

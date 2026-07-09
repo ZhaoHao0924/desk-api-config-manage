@@ -20,6 +20,41 @@ function sanitizeCopyOptions(options) {
   };
 }
 
+function sanitizeTransportCustomHeader(header) {
+  if (!header || typeof header !== "object") {
+    return null;
+  }
+
+  const key = String(header.key ?? "").trim().toLowerCase();
+
+  if (!key) {
+    return null;
+  }
+
+  const isSecret = header.isSecret === true;
+
+  if (isSecret) {
+    const encryptedValue = typeof header.encryptedValue === "string" ? header.encryptedValue : undefined;
+    return encryptedValue ? { key, isSecret: true, encryptedValue } : null;
+  }
+
+  const plaintextValue = typeof header.plaintextValue === "string" ? header.plaintextValue : undefined;
+  return plaintextValue !== undefined ? { key, isSecret: false, plaintextValue } : null;
+}
+
+function sanitizeTransportCustomHeaders(customHeaders) {
+  if (!Array.isArray(customHeaders)) {
+    return undefined;
+  }
+
+  const sanitized = customHeaders
+    .slice(0, 32)
+    .map(sanitizeTransportCustomHeader)
+    .filter((h) => h !== null);
+
+  return sanitized.length > 0 ? sanitized : undefined;
+}
+
 function sanitizeConnectionRequest(request) {
   if (!request || typeof request !== "object") {
     throw new Error("request must be an object.");
@@ -34,7 +69,8 @@ function sanitizeConnectionRequest(request) {
     providerId: String(request.providerId ?? ""),
     providerType: String(request.providerType ?? ""),
     thinkingEnabled: request.thinkingEnabled === true,
-    timeoutMs: Number.isFinite(request.timeoutMs) ? request.timeoutMs : undefined
+    timeoutMs: Number.isFinite(request.timeoutMs) ? request.timeoutMs : undefined,
+    customHeaders: sanitizeTransportCustomHeaders(request.customHeaders)
   };
 }
 

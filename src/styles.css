@@ -820,6 +820,132 @@ button:disabled {
   line-height: 1.6;
 }
 
+.customHeadersPanel {
+  margin: 0 18px 16px;
+  padding: 12px 14px;
+  border: 1px solid #edf1f5;
+  border-radius: 8px;
+  background: #fbfcfe;
+  display: grid;
+  gap: 10px;
+}
+
+.customHeadersPanel .panelTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.customHeadersPanel .panelTitle h2 {
+  font-size: 13px;
+  font-weight: 600;
+  color: #475569;
+  margin: 0;
+}
+
+.customHeadersPanel .panelTitle span {
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.customHeadersList {
+  display: grid;
+  gap: 6px;
+}
+
+.customHeaderRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  font-size: 13px;
+  min-width: 0;
+}
+
+.customHeaderRow .headerKey {
+  font-family: monospace;
+  font-size: 12px;
+  color: #475569;
+  flex: 0 0 auto;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.customHeaderRow .headerValue {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #334155;
+  font-family: monospace;
+  font-size: 12px;
+}
+
+.customHeaderRow .headerTag {
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: #f1f5f9;
+  color: #64748b;
+  flex: 0 0 auto;
+}
+
+.iconButton.danger {
+  color: #dc2626;
+}
+
+.iconButton.danger:hover {
+  background: #fee2e2;
+}
+
+.addHeaderForm {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.addHeaderForm input[type="text"],
+.addHeaderForm input[type="password"] {
+  flex: 1 1 120px;
+  min-width: 80px;
+  padding: 5px 8px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 13px;
+  background: #fff;
+  color: #1e293b;
+}
+
+.addHeaderForm input[type="text"]:focus,
+.addHeaderForm input[type="password"]:focus {
+  outline: none;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.12);
+}
+
+.addHeaderForm .inlineCheckbox {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px;
+  color: #475569;
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+
+.addHeaderError {
+  font-size: 12px;
+  color: #dc2626;
+  padding: 4px 0;
+}
+
 .configForm {
   display: grid;
 }

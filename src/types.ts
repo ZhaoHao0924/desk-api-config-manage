@@ -114,6 +114,20 @@ export interface ApiConfig {
   updatedAt: string;
 }
 
+export interface CustomHeader {
+  id: string;
+  configId: string;
+  key: string;
+  /** Plaintext value for non-secret headers; encrypted ciphertext for secret ones. */
+  value: string;
+  /** When true, value is encrypted and must not appear in logs, exports, or snippets. */
+  isSecret: boolean;
+  /** Masked preview for secret values (e.g. "sk-****abcd"). Empty for non-secret. */
+  valuePreview: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface TestHistoryItem {
   id: string;
   configId: string;
